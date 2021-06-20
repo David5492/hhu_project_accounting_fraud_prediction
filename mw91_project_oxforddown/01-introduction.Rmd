@@ -1,0 +1,21 @@
+---
+#########################################
+# options for knitting a single chapter #
+#########################################
+output:
+  bookdown::pdf_document2:
+    template: templates/brief_template.tex
+    citation_package: biblatex
+  bookdown::html_document2: default
+  bookdown::word_document2: default
+documentclass: book
+#bibliography: references.bib
+---
+
+# Einleitung {#intro}
+
+
+Vergangene und gegenwärtige Bilanzskandale wie ENRON, Worldcom oder Wirecard führen immer wieder zu Diskussionen über die Vertrauenswürdigkeit des Kapitalmarkts sowie über die Vertrauenswürdigkeit der Abschlussprüfung. Bilanzskandale führen weit-reichende Konsequenten mit sich welche eine genauere Analyse des Warums und wie anstoßen (vgl. Boecker/Zwirner 2012, S. 1).
+Diese Arbeit hat das Ziel, den Einsatz neuronaler Netze gegenüber der gängigeren Me-thode der logistischen Regression (vgl. Bao et al., 2020) zu vergleichen und dabei her-auszufinden, ob erstere signifikant besser darin sind, so viele Betrugsfälle wie möglich zu identifizieren, ohne die triviale Annahme zu treffen, dass jeder Fall ein Betrugsfall ist. Bei der Modellevaluation wird angenommen, dass ein nicht-identifizierter Betrugsfall doppelt so schwer wiegt, wie ein prognostizierter Betrugsfall, der sich als Nicht-Betrug herausstellt.
+Die Metrik zur Messung der Ergebnisse ist der $F_{\beta}$-Score (vgl. Tharwat 2020, S. 174). Dieser bildet das harmonische Mittel aus Präzision und Sensitivität. Die Präzision sagt aus, wie viele vorhergesagte Betrugsfälle tatsächlich Betrugsfälle sind, wobei die Sensi-tivität dabei auf die Frage antwortet, wie viele der tatsächlichen Betrugsfälle als solche identifiziert wurden. Weil die Sensitivität im Kontext der Fraud Detection bedeutungs-voller erscheint, wird sie in dieser Arbeit doppelt so hoch gewichtet wie die Präzision. Die Formel dieser Metrik lautet dabei:
+$$F_{\beta = 2} = (1+\beta^{2})*\frac{P*R}{\beta * P*R}$$

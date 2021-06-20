@@ -1,0 +1,203 @@
+---
+output:
+  #bookdown::html_document2: default
+  #bookdown::word_document2: default
+  bookdown::pdf_document2:
+    template: templates/brief_template.tex
+    citation_package: biblatex
+documentclass: book
+bibliography: references.bib
+---
+
+# Methoden {#methods} 
+
+Diese Arbeit vergleicht die Vorhersagequalität der in der Accounting Fraud Detection gängigen logistischen Regression nach Dechow et al. (vgl. Bao et al. 2020, S. 2) mit der von neuronalen Netzen.
+Die logistische Regression ist eng mit der linearen Regression verwandt und wird zur binären Schätzung einer Klassenzugehörigkeit verwandt (vgl. Géron 2019, S. 144). Dabei berechnet sie eine gewichtete Summe von Inputfaktoren und aggregiert sie zu einer Wahrscheinlichkeit zwischen 0 und 1. Liegt diese Wahrscheinlichkeit bei mindestens 0.5, so wird die Klasse „1“ vorhergesagt, welcher in dieser Arbeit der Klasse „fraud“ entspricht (vgl. Géron 2019, S. 144). Hierzu wird für jedes Attribut einer Beobachtung eine Sigmoid-Funktion verwendet, welche S-förmig vom Minimum bis zum Maximum des jeweiligen Attributs verläuft und die Verteilungen der Merkmalsausprägungen möglichst gut nach Klassenzugehörigkeit abgrenzt. Je weiter eine Merkmalsausprägung von dieser Grenze entfernt ist, desto näher ist der Funktionswert an der 1 oder der 0 (vgl. Géron 2019, S. 148).
+Neuronale Netze bestehen aus drei Sorten von Schichten: Input-Schichten, welche Daten einlesen, versteckte Schichten, welche die Daten verarbeiten und Output-Schichten, welche aus den verarbeiteten Daten eine Prognose ableiten (vgl. Géron 2019, S. 286). In dieser Arbeit besteht die Output-Schicht aus lediglich einem Knoten, welche die Klassen „fraud“ abbildet. Die Anzahl der Knoten der Input-Schicht entspricht der Anzahl der Variablen im Datensatz. Die Knoten einer Schicht sind jeweils mit jedem Knoten seiner nachfolgenden Schicht durch „Gewichte“ verbunden. Jeder einzelne Knoten aggregiert die Signale, die er empfängt über deren Gewichte zu einer Zahl und wendet eine Aktivierungsfunktion an (vgl. Géron 2019, S. 282). Übersteigt der Funktionswert einen gegeben Schwellenwert, so „feuert“ das Neuron, was bedeutet, dass es ein Signal größer 0 an die Neuronen der nächsten Schicht weitergibt (vgl. Géron 2019, S. 282-283). Die Gewichte und alle Schwellenwerte werden durch Backpropagation unter Zuhilfenahme des Gradient Descent Algorithmus verbessert (vgl. Géron 2019, S.119 und S, 286). Sind alle Trainingsdaten einmal zum Training herangezogen worden, bedeutet das, dass das Netz für „eine Epoche“ trainiert wurde (vgl. Géron 2019, S. 127). In dieser Arbeit wird ein Netz über 100 Epochen hinweg trainiert.
+
+
+ AB HIER HANDELT SICH DER AUFSCHRIEB MEHR UM NOTIZEN ALS UM EINE ABGABEFÄHIGE VERSION.
+ 
+```{r}
+library(neuralnet)
+library(caret)
+library(dplyr)
+library(Hmisc)
+library(smotefamily)
+
+set.seed = 42
+```
+ 
+ 
+```{r}
+library(readr)
+data <- read_csv("data/data.csv")
+dim(data)
+```
+Wir haben 31990 Beobachtungen auf 51 Variablen. Wir müssen die fehlenden Werte Ientifizieren und die Spalten, welche zu viele davon enthalten löschen. Danach löschen wir die übrigen Zeilen, welche NaNs enthalten. Dies dient dem Umstand, dass NN mit NaN-Werten nicht arbeiten können. Wir verwenden für LogReg und NN den glichen Datensatz, um die Performance der Modelle vergleichen zu können. 
+```{r}
+nan_number_list <- vector()
+nan_col_list <- vector()
+
+for (col in colnames(data)){
+  nan_number <- sum(is.na(data[col]))
+  nan_number_list <- append(nan_number_list, nan_number, after = length(nan_number_list))
+  nan_col_list <- append(nan_col_list, col, after = length(nan_col_list))
+  nan_tabel <- as.data.frame(cbind(nan_number_list, nan_col_list))
+  new_nan_tabel <- nan_tabel[order(- nan_number_list),]
+  rownames(new_nan_tabel) <- NULL
+}
+
+print(head(new_nan_tabel, 10))
+
+```
+
+Die Variable, "p_aaer" und "new_p_aaer" fallen durch extrem viele NaN-Werte auf und werden komplett entfernt. Die übrigen Variablen bestehen zu maximal ca 10% aus NaN-Werten und werden daher als unbedenklich eingestuft. "new_p_aaer" und alle Beobachtungen, welche NaN-Werte enthalten, werden beseitigt. DAZU NOCH EINE EXTRASPALTE "nan_frac" EINFÜGEN UND nan_col_list ZUM INDEX MACHEN. nan_number_list zu "NaN-Werte".
+
+```{r}
+data <- data[, -match(c("new_p_aaer", "p_aaer"), names(data))]
+data <- data[complete.cases(data),]
+dim(data) # Übrige Beobachtungen: 27792 auf 49 Variablen
+```
+Damit ein NN oder die LogReg Inputdaten verwerten kann, müssen diese zwischen 0 und 1 normiert sein. 
+```{r}
+normalize <- function(col, na.rm = TRUE) {
+    return((col- min(col)) /(max(col)-min(col)))
+}
+# as.data.frame(apply(df$name, normalize))
+for (col in colnames(data))
+{
+  data[col] <- normalize(data[col])
+}
+
+# die nachfolgenden Schleifen überprüft nur, ob normalize geklappt hat.-> Yes. 
+
+for (col in colnames(data)) {
+  print(max(data[,col]))
+}
+
+for (col in colnames(data)) {
+  print(min(data[,col]))
+}
+
+```
+
+trainings- und testdaten generieren (seed = immer noch 42)
+
+```{r}
+smp_size <- floor(0.70 * nrow(data))
+
+train_ind <- sample(seq_len(nrow(data)), size = smp_size)
+
+train <- data[train_ind, ]
+
+true_frac <- sum(train[,7] == 1) / (smp_size - sum(train[,7] == 1)) #sagt aus, wie hoch Anteil der Betrugsfälle im Testdatenssatz ist
+
+
+train_smote_object <- SMOTE(train[, -7], train[,7], K = 5, dup_size = 1 / true_frac)$data
+train_smote_object$class <- as.numeric(train_smote_object$class)
+
+test <- data[-train_ind, ]
+```
+```{r}
+
+```
+
+
+```{r, include=TRUE}
+#das sind nur nebenrechnungen
+
+# Anteil der Betrugsfälle im Trainingsdatensatz vor SMOTE: 
+sum(train[,7] == 1) / (smp_size - sum(train[,7] == 1))
+
+# Anteil der Betrugsfälle im Trainingsdatensatz nach SMOTE: 
+sum(train_smote_object$class == "1") / nrow(train_smote_object)
+
+```
+
+Jetzt wird ein NN trainiert und eine erste Prognose abgegeben. seed = 42
+```{r}
+
+nn <- neuralnet(
+  class ~.,
+  data = train_smote_object,
+  hidden = 10,
+  err.fct = 'sse',
+  linear.output = FALSE,
+  stepmax = 10000,
+  lifesign = 'full',
+  threshold = 7 # da sollte eigentlich 0.01 stehen. 7 ist unfug, aber da kommt man wenigstens hin. ich will schauen, ob das wenigstens einigermaßen okay ist. 
+)
+```
+```{r}
+plot(nn)
+```
+Nun werden die Ergebnisse für einen Score verwendet.
+
+```{r}
+# train[, !names(train) %in% c('misstate')] 
+# das heißt "alle cols außer misstate".
+
+output <- neuralnet::compute(nn, train_smote_object[, !names(train_smote_object) %in% c('class')])
+head(output$net.result, 10)
+head(train_smote_object[, names(train_smote_object) %in% c('class')], 10)
+```
+Klappt. Jetzt Confusion-Matrix:
+
+```{r}
+output <- neuralnet::compute(nn, train[, !names(train) %in% c('misstate')])
+
+p1 <- output$net.result
+
+pred1 <- ifelse(p1>0.5, 1, 0)
+
+tab1 <- table(pred1, train$misstate)
+tab1
+```
+okay, das ist immerhin mal etwas. 
+
+```{r}
+output_test <- neuralnet::compute(nn, test[, !names(test) %in% c('misstate')])
+
+p2 <- output_test$net.result
+
+pred2 <- ifelse(p2>0.5, 1, 0)
+
+tab2 <- table(pred2, test$misstate)
+tab2
+```
+
+
+
+
+FAZIT: Bisherige Vorhersage ist eine Katastrophe. 23 Betrugsfälle wurde als nicht-Betrug klassifiziert. Dafür wurden 633 nicht-Betrugsfälle als Betrug klassifiziert. Ich brauche ein komplexeres Netz.Rechenzeit geht aber durch die Decke ( mehrere Tage, wenn ich ein bisschen herumprobieren will).
+
+Lösungsansätze: 
+
+  1. Grafikkarte verwenden. Dazu Keras / Tensorflow instalieren, und herumprobieren. 
+  2. NN verwerfen. 
+  3. ElasticNet im Vorfeld verwenden, um Dimensionen zu reudzieren.
+  4. PCS im Vorfeld verwenden, um Dimensionen zu rudzieren [DAS HAT POTENTIAL]
+  5. (Hyper-) parameteropitimisierung:
+      -> Mehr Layer
+      -> Mehr Nodes
+      -> k=5 von SOMTE verändern. 
+      -> 1:1-Upsampling von SMOTE verändern.
+
+Weiteres TODO: 
+  -> LogReg basteln und versuchen, auf vernünftige Ergebnisse zu kommen. Baseline muss stehen.
+  -> PDF-Output muss für uns angepasst werden:
+      -> HHU-Beschriftungen- und Bilder
+      -> Unsere Namen
+      -> Unsere Quellen & deren korrekte Zitation
+
+
+Wir müssen wirklich darüber nachdenken, ob wir das durchziehen wollen. Und ob wir dafür wirklich R verwenden. In Python könnte ich wesentlich schneller Arbeiten (Da verwende ich bereits meine GPU in COLAB-Notebooks.)
+
+
+
+
+
+
+
+
