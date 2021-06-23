@@ -18,6 +18,8 @@ Neuronale Netze bestehen aus drei Sorten von Schichten: Input-Schichten, welche 
 
  AB HIER HANDELT SICH DER AUFSCHRIEB MEHR UM NOTIZEN ALS UM EINE ABGABEFÄHIGE VERSION.
  
+ 
+ 
 ```{r}
 library(neuralnet)
 library(caret)
@@ -31,7 +33,7 @@ set.seed = 42
  
 ```{r}
 library(readr)
-data <- read_csv("data/data.csv")
+data <- read_csv("data/uscecchini28.csv")
 dim(data)
 ```
 Wir haben 31990 Beobachtungen auf 51 Variablen. Wir müssen die fehlenden Werte Ientifizieren und die Spalten, welche zu viele davon enthalten löschen. Danach löschen wir die übrigen Zeilen, welche NaNs enthalten. Dies dient dem Umstand, dass NN mit NaN-Werten nicht arbeiten können. Wir verwenden für LogReg und NN den glichen Datensatz, um die Performance der Modelle vergleichen zu können. 
@@ -99,9 +101,7 @@ train_smote_object$class <- as.numeric(train_smote_object$class)
 
 test <- data[-train_ind, ]
 ```
-```{r}
 
-```
 
 
 ```{r, include=TRUE}
