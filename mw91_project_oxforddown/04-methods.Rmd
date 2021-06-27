@@ -20,23 +20,37 @@ Neuronale Netze bestehen aus drei Sorten von Schichten: Input-Schichten, welche 
  
  
  
+```{r, include=FALSE}
+# install.packages("stringi", type="binary")
+# install.packages('caret')
+# install.packages('neuralnet')
+# install.packages('dplyr')
+# install.packages('Hmisc')
+# install.packages('smotefamily')
+# install.packages('readr')
+# install.packages('rio', type='binary')
+# install.packages('bookdown', type='binary')
+
+```
 ```{r}
+
 library(neuralnet)
 library(caret)
 library(dplyr)
 library(Hmisc)
 library(smotefamily)
-
-set.seed = 42
+library(readr)
+library(rio)
 ```
  
  
 ```{r}
-library(readr)
-data <- read_csv("data/uscecchini28.csv")
+set.seed = 42
+
+data <- import("data/uscecchini28.csv")
 dim(data)
 ```
-Wir haben 31990 Beobachtungen auf 51 Variablen. Wir müssen die fehlenden Werte Ientifizieren und die Spalten, welche zu viele davon enthalten löschen. Danach löschen wir die übrigen Zeilen, welche NaNs enthalten. Dies dient dem Umstand, dass NN mit NaN-Werten nicht arbeiten können. Wir verwenden für LogReg und NN den glichen Datensatz, um die Performance der Modelle vergleichen zu können. 
+Wir haben 146045 Beobachtungen auf 51 Variablen. Wir müssen die fehlenden Werte Ientifizieren und die Spalten, welche zu viele davon enthalten löschen. Danach löschen wir die übrigen Zeilen, welche NaNs enthalten. Dies dient dem Umstand, dass NN mit NaN-Werten nicht arbeiten können. Wir verwenden für LogReg und NN den glichen Datensatz, um die Performance der Modelle vergleichen zu können. 
 ```{r}
 nan_number_list <- vector()
 nan_col_list <- vector()
@@ -54,12 +68,12 @@ print(head(new_nan_tabel, 10))
 
 ```
 
-Die Variable, "p_aaer" und "new_p_aaer" fallen durch extrem viele NaN-Werte auf und werden komplett entfernt. Die übrigen Variablen bestehen zu maximal ca 10% aus NaN-Werten und werden daher als unbedenklich eingestuft. "new_p_aaer" und alle Beobachtungen, welche NaN-Werte enthalten, werden beseitigt. DAZU NOCH EINE EXTRASPALTE "nan_frac" EINFÜGEN UND nan_col_list ZUM INDEX MACHEN. nan_number_list zu "NaN-Werte".
+Die Variable, "p_aaer" und "new_p_aaer" fallen durch extrem viele NaN-Werte auf und werden komplett entfernt. Die übrigen Variablen bestehen zu maximal ca 15% aus NaN-Werten und werden daher als unbedenklich eingestuft. "new_p_aaer" und alle Beobachtungen, welche NaN-Werte enthalten, werden beseitigt. DAZU NOCH EINE EXTRASPALTE "nan_frac" EINFÜGEN UND nan_col_list ZUM INDEX MACHEN. nan_number_list zu "NaN-Werte".
 
 ```{r}
 data <- data[, -match(c("new_p_aaer", "p_aaer"), names(data))]
 data <- data[complete.cases(data),]
-dim(data) # Übrige Beobachtungen: 27792 auf 49 Variablen
+dim(data) # Übrige Beobachtungen: 116478 auf 49 Variablen
 ```
 Damit ein NN oder die LogReg Inputdaten verwerten kann, müssen diese zwischen 0 und 1 normiert sein. 
 ```{r}
@@ -70,16 +84,6 @@ normalize <- function(col, na.rm = TRUE) {
 for (col in colnames(data))
 {
   data[col] <- normalize(data[col])
-}
-
-# die nachfolgenden Schleifen überprüft nur, ob normalize geklappt hat.-> Yes. 
-
-for (col in colnames(data)) {
-  print(max(data[,col]))
-}
-
-for (col in colnames(data)) {
-  print(min(data[,col]))
 }
 
 ```
@@ -121,7 +125,7 @@ Jetzt wird ein NN trainiert und eine erste Prognose abgegeben. seed = 42
 nn <- neuralnet(
   class ~.,
   data = train_smote_object,
-  hidden = 10,
+  hidden = 1,
   err.fct = 'sse',
   linear.output = FALSE,
   stepmax = 10000,
@@ -170,34 +174,115 @@ tab2
 
 
 
-FAZIT: Bisherige Vorhersage ist eine Katastrophe. 23 Betrugsfälle wurde als nicht-Betrug klassifiziert. Dafür wurden 633 nicht-Betrugsfälle als Betrug klassifiziert. Ich brauche ein komplexeres Netz.Rechenzeit geht aber durch die Decke ( mehrere Tage, wenn ich ein bisschen herumprobieren will).
+FAZIT: Bisherige Vorhersage ist eine Katastrophe. Ich brauche ein komplexeres Netz.Rechenzeit geht aber durch die Decke ( mehrere Tage, wenn ich ein bisschen herumprobieren will).
 
 Lösungsansätze: 
 
-  1. Grafikkarte verwenden. Dazu Keras / Tensorflow instalieren, und herumprobieren. 
-  2. NN verwerfen. 
-  3. ElasticNet im Vorfeld verwenden, um Dimensionen zu reudzieren.
-  4. PCS im Vorfeld verwenden, um Dimensionen zu rudzieren [DAS HAT POTENTIAL]
-  5. (Hyper-) parameteropitimisierung:
-      -> Mehr Layer
-      -> Mehr Nodes
-      -> k=5 von SOMTE verändern. 
-      -> 1:1-Upsampling von SMOTE verändern.
+  1. [GESCHEITERT] Grafikkarte verwenden. Dazu Keras / Tensorflow instalieren, und herumprobieren. 
+  2. NN verwerfen. -> NEIN! 
+  3. PCA oder ElasticNet im Vorfeld verwenden, um Dimensionen zu reudzieren. -> Lieber nicht. So viele sinds nicht!
+  4. (Hyper-) parameteropitimisierung:
+      -> Mehr Layer / Nodes
+      -> k=5 von SOMTE verändern. -> Nee, das geht schon so. 
 
 Weiteres TODO: 
   -> LogReg basteln und versuchen, auf vernünftige Ergebnisse zu kommen. Baseline muss stehen.
+  -> Funktion "evaluate" basteln, die mir die immer gleiche Tabelle ausgibt: Acc, Error, Prec, Sens, F1, F2
   -> PDF-Output muss für uns angepasst werden:
       -> HHU-Beschriftungen- und Bilder
       -> Unsere Namen
       -> Unsere Quellen & deren korrekte Zitation
 
 
-Wir müssen wirklich darüber nachdenken, ob wir das durchziehen wollen. Und ob wir dafür wirklich R verwenden. In Python könnte ich wesentlich schneller Arbeiten (Da verwende ich bereits meine GPU in COLAB-Notebooks.)
+```{r}
+# Funktion "evaluate basteln. Rechnet mit y_test und y_pred. 
+# Ausgabe ist Tabelle mit Acc, Error, Prec, Sens, F1, F2. 
+# Die Metriken werden nur für die True-Zeile (also fraud) berechnet.
+
+evaluate <- function(test, pred){
+  
+  pred <- ifelse(pred > 0.5, 1, 0)
+  confusion <- table(test, pred)
+  total_acc <- numeric(2)
+  total_acc[1] <- NaN
+  total_acc[2] <- round((confusion[1,1] + confusion[2,2]) / sum(confusion),4)
+
+  
+  prec <- numeric(2)
+  prec[1] <- NaN
+  prec[2] <- round(confusion[2,2] / (confusion[2,2] + confusion[2,1]),4)
+  
+  sens <- numeric(2)
+  sens[1] <- NaN
+  sens[2] <- round(confusion[2,2] / (confusion[2,2] + confusion[1,2]),4)
+  
+  F1 <- numeric(2)
+  F1[1] <- NaN
+  F1[2] <- round(2*(prec[2]*sens[2])/(prec[2] + sens[2]), 4)
+  
+  F2 <- numeric(2)
+  F2[1] <- NaN
+  F2[2] <- round((1 + 2^2) * (prec[2]*sens[2]) / (2^2 * prec[2] + sens[2]), 4)
+  
+  print(cbind(confusion, total_acc, prec, sens, F1, F2))
+  
+}
+
+
+y_test <- c(1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1)
+y_pred <- c(1,0,1,1,0,1,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,1)
+
+evaluate(test=y_test, pred=y_pred ) # sou, Evaluierungssfunktion steht. 
+```
+
+Ich wollte an der Stelle ein NN auf meiner Grafikkarte Trainieren. Aber es geht nicht. Nach 6h Arbeit und dem Versuch, RStudio dazu zu bringen, tensorflow zu installieren, gebe ich auf. Entweder wir nehmes das Netz von Sebbi oder ich trainiere nochmal eins alá c(16,16,8,8,4) oder so. Dafür den Rechner dann über Nacht stehen lassen. Problem dabei: Jedes fucking Mal, wenn wir hier nochmal etwas ändern wollen, muss das von vorne gemacht werden. Ich suche nach einer Möglichkeit, die Gewichte und Biases zu extrahieren und zu speichern. 
+
+NEUES TODO:
+  -> extract and save weights and biases after training. 
+
+Jetzt erstmal die logistische Regression basteln:
+```{r}
+# trainingsdaten in train_smote_object
+# testdaten in test
+
+mylogit <- glm(class ~., data = train_smote_object, family = "binomial")
+y_pred_logit <- predict.glm(mylogit, test[, !names(train) %in% c('misstate')])
+
+evaluate(test$misstate, y_pred_logit)
+```
+Scheinbar ist irgendetwas perfekt in den Traingsdaten korreliert. Herausfinden was
+
+```{r}
+cor(select(train_smote_object, 'issue', 'class'))
+```
+```{r}
+round(cor(train_smote_object$class, train_smote_object[, !names(train_smote_object) %in% c('class')]), 2)
+```
+GEFUNDEN: ch_cm & ch_roa haben eine Korrelation von 0. Also erklärn sie die Vorhersage "perfekt nicht".
+-> spielt keine Rolle. 
+-> By the way: Hier wäre ein guter Ansatz zur Feature-Selection
 
 
 
 
+FAZIT: Bisherige Vorhersage bleibt eine Katastrophe. Wir brauchen ein komplexeres Netz.Rechenzeit geht aber durch die Decke ( mehrere Tage).
+
+Bisherige Lösungsansätze: 
+  -> Komplett verworfen. 6h an einer Lösung gearbeitet, die in R funktioniert. Geschditert. Wir machen das mit Sebbi's Netz oder auf 
+    Google Colab, also in Python. Alles andere (GPU-Nutzung in R, ...) ist keine Option mehr.
+
+Weitere TODOs: 
+  -> [DONE] LogReg mit allen Daten basteln und versuchen, auf vernünftige Ergebnisse zu kommen. Baseline muss stehen.
+  -> [DONE] Funktion "evaluate" basteln, die mir die immer gleiche Tabelle ausgibt: Acc, Error, Prec, Sens, F1, F2
+  -> Irgendwas stimmt mit dem F2-Score nicht. Wahrscheinlich sind in der die Gewichtungen von Prec und Sens durcheinander gekommen. Oder        ich habs falsch verstanden und wir wollen in Wirklichkeit den F0.5-Score. 
+  -> 
+  -> PDF-Output muss für uns angepasst werden:
+      -> HHU-Beschriftungen- und Bilder
+      -> Unsere Namen
+      -> Unsere Quellen & deren korrekte Zitation
 
 
+
+Ich habe eben bei Bao egschaut. Unser Baseline modell hat eine prec von ca 45%. Bao war mit absolut allen Modellen DEUTLICH darunter (1-10%). Sind wir die Besten? Nein. Irgendwas ist hier falsch. Morgen nochmal schauen, wie sich LOGIT verhält, wenn sie nur Rohdaten bekommt (normalisiert und upsampled natürlich). Alternativ kann man sich zu dem Gedanken hinreißen lassen, dass Bao und co einfach nicht gut gearbeitet haben...mal schauen. 
 
 
