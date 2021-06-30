@@ -47,35 +47,184 @@ library(rio)
 ```{r}
 set.seed = 42
 
-data <- import("data/uscecchini28.csv")
-dim(data)
+all_data <- import("data/uscecchini28.csv")
+dim(all_data)
 ```
 Wir haben 146045 Beobachtungen auf 51 Variablen. Wir müssen die fehlenden Werte Ientifizieren und die Spalten, welche zu viele davon enthalten löschen. Danach löschen wir die übrigen Zeilen, welche NaNs enthalten. Dies dient dem Umstand, dass NN mit NaN-Werten nicht arbeiten können. Wir verwenden für LogReg und NN den glichen Datensatz, um die Performance der Modelle vergleichen zu können. 
-```{r}
-nan_number_list <- vector()
-nan_col_list <- vector()
 
-for (col in colnames(data)){
-  nan_number <- sum(is.na(data[col]))
-  nan_number_list <- append(nan_number_list, nan_number, after = length(nan_number_list))
-  nan_col_list <- append(nan_col_list, col, after = length(nan_col_list))
-  nan_tabel <- as.data.frame(cbind(nan_number_list, nan_col_list))
-  new_nan_tabel <- nan_tabel[order(- nan_number_list),]
-  rownames(new_nan_tabel) <- NULL
+Um die Spalten zu identifizieren, die viele Na-Werte beinhalten, wird die folgende Funktion egschrieben:
+```{r}
+check_na <- function(data){
+  
+  nan_number_list <- vector()
+  nan_col_list <- vector()
+  
+  for (col in colnames(data)){
+    nan_number <- sum(is.na(data[col]))
+    nan_number_list <- append(nan_number_list, nan_number, after = length(nan_number_list))
+    nan_col_list <- append(nan_col_list, col, after = length(nan_col_list))
+    nan_tabel <- as.data.frame(cbind(nan_number_list, nan_col_list))
+    new_nan_tabel <- nan_tabel[order(- nan_number_list),]
+    rownames(new_nan_tabel) <- NULL
+  }
+  
+  print(head(new_nan_tabel, 24))
 }
 
-print(head(new_nan_tabel, 10))
+check_na(all_data)
+```
+3 Sepparate Datensätze und die Rohdaten und Ratios auf NaN checken. 
+
+```{r}
+
+ratio_names <- c("fyear", "misstate", "dch_wc", "ch_rsst", "dch_rec", "dch_inv", "soft_assets", "dpi", "ch_cs", "ch_cm", "ch_roa", "ch_fcf", "reoa", "EBIT", "issue", "bm")
+ratio_data <- all_data[, match(ratio_names, names(all_data))]
+
+raw_data <- all_data[, -match(ratio_names, names(all_data))]
+```
+
+```{r}
+check_na(ratio_data)
+```
+
+```{r}
+ratio_data <- ratio_data[complete.cases(ratio_data),]
+```
+ratio_data enthält jetzt alle Zeilen der Ration-Daten ohne NaN-Einträge. Es bleiben 126483 auf 14 Variablen übrig.
+
+```{r}
+check_na(raw_data)
+```
+
+```{r}
+
+raw_data <- raw_data[, -match(c("p_aaer", "new_p_aaer"), names(raw_data))]
+raw_data <- raw_data[complete.cases(raw_data),]
+```
+raw_data enthält jetzt alle Zeilen der Rohdaten ohne NaN-Einträge. Es bleiben 132516 auf 35 Variablen übrig.
+"p_aaer" & "new_p_aaer" bestanden fast ausschließlich aus NaN-Werten, weshalb die Spalten komplett gelöscht wurden. 
+
+HIER STIMMT WAS NICHT: 35 Vars? Das sollten 26 (vormals 28) sein. Checken was da los ist. 
+```{r}
+raw_names <- c("fyear", "misstate", "act", "ap", "at", "ceq", "che", "cogs", "csho", "dlc", "dltis", "dltt", "dp", "ib", "invt", "ivao", "ivst", "lct", "lt", "ni", "ppegt", "pstk", "re", "rect", "sale", "sstk", "txp", "txt", "xint", "prcc_f")
+
+raw_data <- all_data[, match(raw_names, names(all_data))]
+
+raw_and_ratio_names <- c(raw_names, ratio_names)
+
+strange_rest_data <- all_data[, -match(raw_and_ratio_names, names(all_data))]
+
+print(names(strange_rest_data))
+```
+fyear und misstate sind nützlich. p_aaer und new_p_aaer sind eh schon raus. Der Rest kommt auch weg, weil nutzlos. fyear wird zur Normalisierung der 2 Datensätze raw_data und ratio_data verwendet und misstate ist die Zielvariable.
+
+Es fliegen insgesamt raus: 
+  -> p_aaer
+  -> new_p_aaer
+  -> gvkey
+  -> sich (damit verbundene Annahme: Industriezweig spielt keine Rolle)
+  -> insbnk
+  -> understatement
+  -> option
+  
+Übrig bleiben: 
+  -> 126483 fälle auf 14 ratios-Variablen
+  -> 146045 fälle auf 28 Rohdaten-Variablen
+  -> 1 Zielvariable ("misstate")
+  -> 1 Variable zur Normalisierung "fyear"
+
+(an der Stelle bin ich zurück nach oben gegangen und habe fyear und misstate zu den beiden Datensätzen hinzugefügt)
+```{r}
+
+```
+  
+
+
+TEST: Es gibt mehr Roh-Fälle als Ratio-Fälle. Kann ich die überschüssigen Rohfälle einfach löschen oder sind in denen proportional mehr oder weniger Betrugsfälle?
+
+```{r}
+raw_frac <- sum(raw_data$misstate) / nrow(raw_data)
+ratio_frac <- sum(ratio_data$misstate) / nrow(ratio_data)
+
+ratio_frac / raw_frac
+
+```
+Jaaaaa, dumm gelaufen. In den ratio-Daten ist die Dichte an Betrugsfällen knapp 9% höher. Dem kann man nur auf eine Weise begegnen: Die Rohdaten und Ratio-Daten müssen die gleichen Beobachtungen beinhalten, da man die auf ihnen beruhenden Ergebnisse später sonst nicht vergleichen kann.
+
+Also muss der ganze Cleaning-Prozess nochmal durchgeführt werden, aber in der Reichenfolge:
+
+  1. Daten als "data" Laden
+  2. Spalten "p_aaer" und "new_p_aaer" löschen
+  3. Alle Zeilen mit NaN-Werten löschen
+  4. raw_data, ratio_data und all_data bilden
+  5. deskriptive Statistiken können mit den Datensätzen         aus 4. angefertigt werden 
+  6. Die Datensätze aus 4. via Jahreszahl normalisieren
+  
+Dann ist die Datenvorbereitung fertig und man kann Modelle damit rechnen. Bis zu dem Punkt geht die nächste Zelle:
+
+```{r}
+## 1.
+data <- import("data/uscecchini28.csv")
+
+
+## 2.
+data <- data[,-match(c("p_aaer", "new_p_aaer"), names(data))]
+
+
+## 3.
+data <- data[complete.cases(data),]
+
+
+## 4.
+raw_names <- c("fyear", "misstate", "act", "ap", "at", "ceq", "che", "cogs", "csho", "dlc", "dltis", "dltt", "dp", "ib", "invt", "ivao", "ivst", "lct", "lt", "ni", "ppegt", "pstk", "re", "rect", "sale", "sstk", "txp", "txt", "xint", "prcc_f")
+raw_data <- data[, match(raw_names, names(data))]
+
+ratio_names <- c("fyear", "misstate", "dch_wc", "ch_rsst", "dch_rec", "dch_inv", "soft_assets", "dpi", "ch_cs", "ch_cm", "ch_roa", "ch_fcf", "reoa", "EBIT", "issue", "bm")
+ratio_data <- data[, match(ratio_names, names(data))]
+
+all_names <- c(raw_names, "dch_wc", "ch_rsst", "dch_rec", "dch_inv", "soft_assets", "dpi", "ch_cs", "ch_cm", "ch_roa", "ch_fcf", "reoa", "EBIT", "issue", "bm", ratio_names)
+all_data <- data[, match(all_names, names(data))]
+
+
+## 5. 
+## SKIP. Statistiken bilden geht auch noch wann anders. 
+
+## 6. 
+
+normalize <- function(data){
+  
+  years <- unique(data$fyear)
+  # Ausgabe <- matrix(NA, nrow = nrow(data), ncol = ncol(data))
+  
+  for (year in years){
+    
+    one_year <- data[data$fyear == year, ]
+    
+    for (col in names(one_year)){
+      data[data$fyear == year, col] <- (one_year[col]- min(one_year[col])) /(max(one_year[col])-min(one_year[col]))
+    }
+    
+  }
+  data
+}
+
+norm_all_data <- normalize(all_data)
 
 ```
 
-Die Variable, "p_aaer" und "new_p_aaer" fallen durch extrem viele NaN-Werte auf und werden komplett entfernt. Die übrigen Variablen bestehen zu maximal ca 15% aus NaN-Werten und werden daher als unbedenklich eingestuft. "new_p_aaer" und alle Beobachtungen, welche NaN-Werte enthalten, werden beseitigt. DAZU NOCH EINE EXTRASPALTE "nan_frac" EINFÜGEN UND nan_col_list ZUM INDEX MACHEN. nan_number_list zu "NaN-Werte".
+  
+  
+  
+  
+### BREAK HIER. ALLES DAVOR IST VOM 30.6.
+Die Variable, "p_aaer" und "new_p_aaer", "ch_cm" und "ch_cs" fallen durch extrem viele NaN-Werte auf und werden komplett entfernt. Die übrigen Variablen bestehen zu maximal ca 10% aus NaN-Werten und werden daher als unbedenklich eingestuft. "new_p_aaer" und alle Beobachtungen, welche NaN-Werte enthalten, werden beseitigt. DAZU NOCH EINE EXTRASPALTE "nan_frac" EINFÜGEN UND nan_col_list ZUM INDEX MACHEN. nan_number_list zu "NaN-Werte".
 
 ```{r}
-data <- data[, -match(c("new_p_aaer", "p_aaer"), names(data))]
+data <- data[, -match(c("new_p_aaer", "p_aaer", "ch_cm", "ch_cs"), names(data))]
 data <- data[complete.cases(data),]
 dim(data) # Übrige Beobachtungen: 116478 auf 49 Variablen
 ```
-Damit ein NN oder die LogReg Inputdaten verwerten kann, müssen diese zwischen 0 und 1 normiert sein. 
+Damit ein NN oder die LogReg Inputdaten verwerten kann, müssen diese zwischen 0 und 1 normiert sein. Und zwar Jahr für Jahr. 
 ```{r}
 normalize <- function(col, na.rm = TRUE) {
     return((col- min(col)) /(max(col)-min(col)))
@@ -119,85 +268,17 @@ sum(train_smote_object$class == "1") / nrow(train_smote_object)
 
 ```
 
-Jetzt wird ein NN trainiert und eine erste Prognose abgegeben. seed = 42
-```{r}
+Jetzt werden 3 NN trainiert: Alle Daten, nur Roh, nur Ratios. seed = 42
 
-nn <- neuralnet(
-  class ~.,
-  data = train_smote_object,
-  hidden = 1,
-  err.fct = 'sse',
-  linear.output = FALSE,
-  stepmax = 10000,
-  lifesign = 'full',
-  threshold = 7 # da sollte eigentlich 0.01 stehen. 7 ist unfug, aber da kommt man wenigstens hin. ich will schauen, ob das wenigstens einigermaßen okay ist. 
-)
-```
-```{r}
-plot(nn)
-```
-Nun werden die Ergebnisse für einen Score verwendet.
-
-```{r}
-# train[, !names(train) %in% c('misstate')] 
-# das heißt "alle cols außer misstate".
-
-output <- neuralnet::compute(nn, train_smote_object[, !names(train_smote_object) %in% c('class')])
-head(output$net.result, 10)
-head(train_smote_object[, names(train_smote_object) %in% c('class')], 10)
-```
-Klappt. Jetzt Confusion-Matrix:
-
-```{r}
-output <- neuralnet::compute(nn, train[, !names(train) %in% c('misstate')])
-
-p1 <- output$net.result
-
-pred1 <- ifelse(p1>0.5, 1, 0)
-
-tab1 <- table(pred1, train$misstate)
-tab1
-```
-okay, das ist immerhin mal etwas. 
-
-```{r}
-output_test <- neuralnet::compute(nn, test[, !names(test) %in% c('misstate')])
-
-p2 <- output_test$net.result
-
-pred2 <- ifelse(p2>0.5, 1, 0)
-
-tab2 <- table(pred2, test$misstate)
-tab2
-```
-
-
-
-
-FAZIT: Bisherige Vorhersage ist eine Katastrophe. Ich brauche ein komplexeres Netz.Rechenzeit geht aber durch die Decke ( mehrere Tage, wenn ich ein bisschen herumprobieren will).
-
-Lösungsansätze: 
-
-  1. [GESCHEITERT] Grafikkarte verwenden. Dazu Keras / Tensorflow instalieren, und herumprobieren. 
-  2. NN verwerfen. -> NEIN! 
-  3. PCA oder ElasticNet im Vorfeld verwenden, um Dimensionen zu reudzieren. -> Lieber nicht. So viele sinds nicht!
-  4. (Hyper-) parameteropitimisierung:
-      -> Mehr Layer / Nodes
-      -> k=5 von SOMTE verändern. -> Nee, das geht schon so. 
-
-Weiteres TODO: 
-  -> LogReg basteln und versuchen, auf vernünftige Ergebnisse zu kommen. Baseline muss stehen.
-  -> Funktion "evaluate" basteln, die mir die immer gleiche Tabelle ausgibt: Acc, Error, Prec, Sens, F1, F2
-  -> PDF-Output muss für uns angepasst werden:
-      -> HHU-Beschriftungen- und Bilder
-      -> Unsere Namen
-      -> Unsere Quellen & deren korrekte Zitation
+-> DAS WIRD VON SEBBI GEMACHT
 
 
 ```{r}
 # Funktion "evaluate basteln. Rechnet mit y_test und y_pred. 
 # Ausgabe ist Tabelle mit Acc, Error, Prec, Sens, F1, F2. 
 # Die Metriken werden nur für die True-Zeile (also fraud) berechnet.
+
+# Confusion matrix sieht so aus: Spalten = pred(0,1), Zeilen = actual(0,1)
 
 evaluate <- function(test, pred){
   
@@ -235,12 +316,7 @@ y_pred <- c(1,0,1,1,0,1,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,1)
 evaluate(test=y_test, pred=y_pred ) # sou, Evaluierungssfunktion steht. 
 ```
 
-Ich wollte an der Stelle ein NN auf meiner Grafikkarte Trainieren. Aber es geht nicht. Nach 6h Arbeit und dem Versuch, RStudio dazu zu bringen, tensorflow zu installieren, gebe ich auf. Entweder wir nehmes das Netz von Sebbi oder ich trainiere nochmal eins alá c(16,16,8,8,4) oder so. Dafür den Rechner dann über Nacht stehen lassen. Problem dabei: Jedes fucking Mal, wenn wir hier nochmal etwas ändern wollen, muss das von vorne gemacht werden. Ich suche nach einer Möglichkeit, die Gewichte und Biases zu extrahieren und zu speichern. 
-
-NEUES TODO:
-  -> extract and save weights and biases after training. 
-
-Jetzt erstmal die logistische Regression basteln:
+Logistische Regression basteln:
 ```{r}
 # trainingsdaten in train_smote_object
 # testdaten in test
@@ -253,29 +329,13 @@ evaluate(test$misstate, y_pred_logit)
 Scheinbar ist irgendetwas perfekt in den Traingsdaten korreliert. Herausfinden was
 
 ```{r}
-cor(select(train_smote_object, 'issue', 'class'))
-```
-```{r}
 round(cor(train_smote_object$class, train_smote_object[, !names(train_smote_object) %in% c('class')]), 2)
 ```
-GEFUNDEN: ch_cm & ch_roa haben eine Korrelation von 0. Also erklärn sie die Vorhersage "perfekt nicht".
--> spielt keine Rolle. 
--> By the way: Hier wäre ein guter Ansatz zur Feature-Selection
+GEFUNDEN: ch_cm, ch_roa, dpi & ni haben eine Korrelation von 0. 
+  -> spielt keine Rolle. 
+  -> By the way: Hier wäre ein guter Ansatz zur Feature-Selection
 
-
-
-
-FAZIT: Bisherige Vorhersage bleibt eine Katastrophe. Wir brauchen ein komplexeres Netz.Rechenzeit geht aber durch die Decke ( mehrere Tage).
-
-Bisherige Lösungsansätze: 
-  -> Komplett verworfen. 6h an einer Lösung gearbeitet, die in R funktioniert. Geschditert. Wir machen das mit Sebbi's Netz oder auf 
-    Google Colab, also in Python. Alles andere (GPU-Nutzung in R, ...) ist keine Option mehr.
-
-Weitere TODOs: 
-  -> [DONE] LogReg mit allen Daten basteln und versuchen, auf vernünftige Ergebnisse zu kommen. Baseline muss stehen.
-  -> [DONE] Funktion "evaluate" basteln, die mir die immer gleiche Tabelle ausgibt: Acc, Error, Prec, Sens, F1, F2
-  -> Irgendwas stimmt mit dem F2-Score nicht. Wahrscheinlich sind in der die Gewichtungen von Prec und Sens durcheinander gekommen. Oder        ich habs falsch verstanden und wir wollen in Wirklichkeit den F0.5-Score. 
-  -> 
+TODO:
   -> PDF-Output muss für uns angepasst werden:
       -> HHU-Beschriftungen- und Bilder
       -> Unsere Namen
@@ -284,5 +344,31 @@ Weitere TODOs:
 
 
 Ich habe eben bei Bao egschaut. Unser Baseline modell hat eine prec von ca 45%. Bao war mit absolut allen Modellen DEUTLICH darunter (1-10%). Sind wir die Besten? Nein. Irgendwas ist hier falsch. Morgen nochmal schauen, wie sich LOGIT verhält, wenn sie nur Rohdaten bekommt (normalisiert und upsampled natürlich). Alternativ kann man sich zu dem Gedanken hinreißen lassen, dass Bao und co einfach nicht gut gearbeitet haben...mal schauen. 
+
+
+AUFGABE: 
+  -> Normalisierung der Daten innerhalb jeden Jahres
+  -> [DONE] LogReg mit allen Daten 
+  -> Log Reg mit nur Rohdaten
+  -> Log Reg mit nur Ratios
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
