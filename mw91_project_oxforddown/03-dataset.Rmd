@@ -15,3 +15,87 @@ Ein besonderer Fokus liegt aus diesem Grund auf der Minimierung des Typ II Fehle
 Zum Training und Test des Machine Learning Modells, wird ein Datensatz aus der Veröffentlichung von Bao et al. (2020) verwendet. Die Autoren haben diesen im Internet auf der Seite „GitHub“ zur Verfügung gestellt (vgl. Bao et al. 2020, GitHub Repository). Dieser besteht aus allen öffentlich gelisteten US-amerikanischen Firmen im Zeitraum von 1991 bis 2008. Die Accounting-Betrugsfälle aus den „Accounting and Auditing Enforcement Releases“ (AAER), die von der United States Securities and Exchange Commission (SEC) im gleichen Zeitraum veröffentlicht worden sind (vgl. Bao et al. 2020, S. 207). Der Datensatz listet für jeden Eintrag 28 verschiedene finanzielle Items auf. Diese setzen sich aus den Veröffentlichungen von Cecchini et al. (2010) und Dechow et al. (2011) zusammen. Die finanziellen Items stammen aus vier verschiedenen Bereichen, der Bilanz (z.B. gesamte Forderungen), der Gewinn- und Verlustrechnung (z.B. Nettoumsatz), der Kapitalflussrechnung (z.B. Langzeitemission von Schuldtiteln) und dem Marktwert (z.B. Common Shares Outstanding).
 Da Accounting-Betrugsfälle eher seltener vorkommen (vgl. Dutta et al. 2011, S. 381), weist der Datensatz eine große Verteilungsungleichheit zwischen den Betrugs- und Nicht-betrugsfällen auf. Weniger als ein Prozent aller Einträge im Datensatz sind hierbei Betrugsfälle. Weitere Betrugsfälle könnten über andere Datenbanken gesucht werden, hierbei gibt es allerdings das Problem, dass die Betrugsfälle identifiziert und einzeln herausgesucht werden müssen. Daher besteht hier ein „class imbalance“ Problem, das mithilfe des Machine Learning Algorithmus gelöst werden muss.
 Zudem sind nur Betrugsfälle bis zum Jahr 2008 in diesem Datensatz erhalten, da die SEC nach der Finanzkrise ihre Prioritäten geändert hat (vgl. Bao et al. 2020, S. 208). Sollte sich die Art und Weise mit der Accounting-Betrug durchgeführt wird in den Jahren danach geändert haben, so können diese Fälle unter Umständen nicht vom Algorithmus erkannt werden.
+
+
+ AB HIER HANDELT SICH DER AUFSCHRIEB MEHR UM NOTIZEN ALS UM EINE ABGABEFÄHIGE VERSION.
+ 
+ 
+ 
+```{r, include=FALSE}
+# install.packages("stringi", type="binary")
+# install.packages('caret')
+# install.packages('neuralnet')
+# install.packages('dplyr')
+# install.packages('Hmisc')
+# install.packages('smotefamily')
+# install.packages('readr')
+# install.packages('rio', type='binary')
+# install.packages('bookdown', type='binary')
+
+library(neuralnet)
+library(caret)
+library(dplyr)
+library(Hmisc)
+library(smotefamily)
+library(readr)
+library(rio)
+```
+Cleaning-Prozess-Reichenfolge:
+
+  1. Daten als "data" Laden
+  2. Spalten "p_aaer" und "new_p_aaer" löschen
+  3. Alle Zeilen mit NaN-Werten löschen
+  4. all_data bilden: Besteht nur aus 14 + 28 + 2 Vars 
+  5. all_data via Jahreszahl normalisieren. fyear droppen. 
+  6. raw_data (28 + 1 Vars) und  ratio_data (14 + 1 Vars) aus all_data bilden
+  7. deskriptive Statistiken können mit den Datensätzen: min, Max, Mean, Median 0.25 und 0.75 Quantile UND normalisierte Boxplots und Histogramme. Ggf noch Ausreißer raus.
+
+  
+Dann ist die Datenvorbereitung fertig und man kann Modelle damit rechnen. Bis zu dem Punkt geht die nächste Zelle:
+
+```{r}
+## 1.
+data <- import("data/uscecchini28.csv")
+
+
+## 2.
+data <- data[,-match(c("p_aaer", "new_p_aaer"), names(data))]
+
+
+## 3.
+data <- data[complete.cases(data),]
+
+
+## 4.
+all_names <- c("fyear", "misstate", "act", "ap", "at", "ceq", "che", "cogs", "csho", "dlc", "dltis", "dltt", "dp", "ib", "invt", "ivao", "ivst", "lct", "lt", "ni", "ppegt", "pstk", "re", "rect", "sale", "sstk", "txp", "txt", "xint", "prcc_f", "dch_wc", "ch_rsst", "dch_rec", "dch_inv", "soft_assets", "dpi", "ch_cs", "ch_cm", "ch_roa", "ch_fcf", "reoa", "EBIT", "issue", "bm")
+all_data <- data[, match(all_names, names(data))]
+
+
+## 5. 
+
+
+normalize <- function(x){
+  return((x - min(x)) / (max(x) - min(x)))
+}
+
+
+for (year in unique(all_data$fyear)){
+  for (col in names(all_data)){
+    all_data[data$fyear == year, col] <- normalize(all_data[data$fyear == year, col]) 
+  }
+}
+
+all_data <- all_data[, -1] # drop fyear
+
+## 6. 
+
+raw_names <- c("misstate", "act", "ap", "at", "ceq", "che", "cogs", "csho", "dlc", "dltis", "dltt", "dp", "ib", "invt", "ivao", "ivst", "lct", "lt", "ni", "ppegt", "pstk", "re", "rect", "sale", "sstk", "txp", "txt", "xint", "prcc_f")
+
+ratio_names <- c("misstate", "dch_wc", "ch_rsst", "dch_rec", "dch_inv", "soft_assets", "dpi", "ch_cs", "ch_cm", "ch_roa", "ch_fcf", "reoa", "EBIT", "issue", "bm")
+
+raw_data <- all_data[, match(raw_names, names(all_data))]
+ratio_data <- all_data[, match(ratio_names, names(all_data))]
+
+## 7. Statistiken erstellen. SKIP. 
+
+```
