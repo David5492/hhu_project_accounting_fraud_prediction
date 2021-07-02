@@ -182,7 +182,7 @@ raw_data <- data[, match(raw_names, names(data))]
 ratio_names <- c("fyear", "misstate", "dch_wc", "ch_rsst", "dch_rec", "dch_inv", "soft_assets", "dpi", "ch_cs", "ch_cm", "ch_roa", "ch_fcf", "reoa", "EBIT", "issue", "bm")
 ratio_data <- data[, match(ratio_names, names(data))]
 
-all_names <- c(raw_names, "dch_wc", "ch_rsst", "dch_rec", "dch_inv", "soft_assets", "dpi", "ch_cs", "ch_cm", "ch_roa", "ch_fcf", "reoa", "EBIT", "issue", "bm", ratio_names)
+all_names <- c(raw_names, "dch_wc", "ch_rsst", "dch_rec", "dch_inv", "soft_assets", "dpi", "ch_cs", "ch_cm", "ch_roa", "ch_fcf", "reoa", "EBIT", "issue", "bm")
 all_data <- data[, match(all_names, names(data))]
 
 
@@ -192,25 +192,36 @@ all_data <- data[, match(all_names, names(data))]
 ## 6. 
 
 normalize <- function(data){
-  
+  ausgabe <- matrix(NA, nrow = nrow(data), ncol = ncol(data))
+  dimnames(ausgabe)[1] <- list(names(data))
   years <- unique(data$fyear)
-  # Ausgabe <- matrix(NA, nrow = nrow(data), ncol = ncol(data))
   
   for (year in years){
     
     one_year <- data[data$fyear == year, ]
     
     for (col in names(one_year)){
-      data[data$fyear == year, col] <- (one_year[col]- min(one_year[col])) /(max(one_year[col])-min(one_year[col]))
+      # data[data$fyear == year, col] <- (one_year[col]- min(one_year[col])) /(max(one_year[col])-min(one_year[col])) 
+      sub_frame <- matrix(NA, nrow = nrow(one_year), ncol = ncol(one_year))
+      dimnames(sub_frame)[1] <- list(names(one_year))
+      sub_frame[col] <- (one_year[col]- min(one_year[col])) /(max(one_year[col])-min(one_year[col]))
+      ausgabe <- sub_frame
     }
     
   }
-  data
+  # data
+  ausgabe
 }
 
 norm_all_data <- normalize(all_data)
 
 ```
+
+```{r}
+library(data.table)
+test <- setDT(data)[, val_norm := val/val[year==1][1L] , by = group]
+```
+
 
   
   
