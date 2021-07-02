@@ -56,9 +56,9 @@ TODO:
 
 ## 1. EVALUATE BILDEN
 
-evaluate <- function(test, pred){
+evaluate <- function(test, pred, border = 0.5){
   
-  pred <- ifelse(pred > 0.5, 1, 0)
+  pred <- ifelse(pred > border, 1, 0)
   confusion <- table(test, pred)
   
   TP <- confusion[2,2]
@@ -89,7 +89,7 @@ evaluate <- function(test, pred){
   F.5[1] <- NaN
   F.5[2] <- round((1 + 0.5^2) * (prec[2]*sens[2]) / (0.5^2 * prec[2] + sens[2]), 4)
   
-  print(cbind(confusion, total_acc, prec, sens, F1, F2, F.5))
+  return(cbind(confusion, total_acc, prec, sens, F1, F2, F.5))
   
 }
 ```
@@ -132,11 +132,28 @@ train <- X_train
 train$misstate <- y_train
 
 logit_all_data <- glm(misstate ~., data = train, family = "binomial")
-y_pred_logit_all_data <- predict.glm(logit_all_data, X_test)
+y_pred_logit_all_data <- predict.glm(logit_all_data, X_test, type = "response" )
 
 evaluate(y_test, y_pred_logit_all_data)
 
 ```
+```{r}
+tpr <- c()
+pre <- c()
+for(i in seq(0.001, 0.999, 0.01)){
+  res <- evaluate(y_test, y_pred_logit_all_data, border = i)
+  pre <- c(pre, 1 - res[2, "prec"])
+  tpr <- c(tpr, res[2, "sens"])
+}
+
+TPR <- seq(0,1,0.1)
+PREC <- seq(0,1,0.1)
+
+plot(PREC, TPR, type="l", col="green")
+lines(pre, tpr, type = "s", col = "red")
+
+```
+
 ```{r}
 summary(logit_all_data)
 ```
@@ -157,7 +174,7 @@ train <- X_train
 train$misstate <- y_train
 
 logit_raw_data <- glm(misstate ~., data = train, family = "binomial")
-y_pred_logit_raw_data <- predict.glm(logit_raw_data, X_test)
+y_pred_logit_raw_data <- predict.glm(logit_raw_data, X_test, type = "response" )
 
 evaluate(y_test, y_pred_logit_raw_data)
 ```
@@ -180,7 +197,7 @@ train <- X_train
 train$misstate <- y_train
 
 logit_ratio_data <- glm(misstate ~., data = train, family = "binomial")
-y_pred_logit_ratio_data <- predict.glm(logit_ratio_data, X_test)
+y_pred_logit_ratio_data <- predict.glm(logit_ratio_data, X_test, type = "response" )
 
 evaluate(y_test, y_pred_logit_ratio_data)
 ```
