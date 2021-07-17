@@ -28,6 +28,7 @@ Neuronale Netze bestehen aus drei Sorten von Schichten: Input-Schichten, welche 
 # install.packages('readr')
 # install.packages('rio', type='binary')
 # install.packages('bookdown', type='binary')
+# install.packages('ROCit')
 
 library(neuralnet)
 library(caret)
@@ -36,6 +37,8 @@ library(Hmisc)
 library(smotefamily)
 library(readr)
 library(rio)
+library(ROCit)
+library(ggplot2)
 ```
 TODO:
 
@@ -53,21 +56,19 @@ TODO:
   5. Summary von allen 3 Modellen
 
 ```{r}
-
 ## 1. EVALUATE BILDEN
-
 evaluate <- function(test, pred, border = 0.5){
   
   pred <- ifelse(pred > border, 1, 0)
   confusion <- table(test, pred)
-  
+  TN <- confusion[1,1]
   TP <- confusion[2,2]
   FP <- confusion[1,2]
   FN <- confusion[2,1]
-  
+
   total_acc <- numeric(2)
   total_acc[1] <- NaN
-  total_acc[2] <- round((confusion[1,1] + confusion[2,2]) / sum(confusion),4)
+  total_acc[2] <- round((TN + TP) / sum(confusion),4)
 
   prec <- numeric(2)
   prec[1] <- NaN
@@ -80,14 +81,18 @@ evaluate <- function(test, pred, border = 0.5){
   F1 <- numeric(2)
   F1[1] <- NaN
   F1[2] <- round(2*(prec[2]*sens[2])/(prec[2] + sens[2]), 4)
+
+  F.score <- function(beta, p = prec[2], s = sens[2]){
+    round((1 + beta^2)*(p*s)/(beta^2*p + s),4)
+  }
   
   F2 <- numeric(2)
   F2[1] <- NaN
-  F2[2] <- round((1 + 2^2) * (prec[2]*sens[2]) / (2^2 * prec[2] + sens[2]), 4)
+  F2[2] <- F.score(2)
   
   F.5 <- numeric(2)
   F.5[1] <- NaN
-  F.5[2] <- round((1 + 0.5^2) * (prec[2]*sens[2]) / (0.5^2 * prec[2] + sens[2]), 4)
+  F.5[2] <- F.score(0.5)
   
   return(cbind(confusion, total_acc, prec, sens, F1, F2, F.5))
   
@@ -98,8 +103,8 @@ evaluate <- function(test, pred, border = 0.5){
 
 ```{r}
 ## 2. MODELL MIT ALLEN DATEN TRANIEREN
-
-train_test_split_smote<- function(data, y_col, frac = 0.7, seed = 42, k = 5){
+train_test_split_smote<- function(data, y_col, frac = 0.7, seed = 42, 
+                                  k = 5){
   set.seed(seed)
   
   smp_size <- floor(frac * nrow(data))
@@ -110,18 +115,23 @@ train_test_split_smote<- function(data, y_col, frac = 0.7, seed = 42, k = 5){
   
   true_frac <- sum(y_smote) / length(y_smote)
   
-  train_smote_object <- SMOTE(X_smote, y_smote, K = 5, dup_size = 1 / true_frac)$data
+  train_smote_object <- SMOTE(X_smote, y_smote, K = 5, 
+                              dup_size = 1 / true_frac)$data
   
-  X_train <- train_smote_object[,-match('class', names(train_smote_object))]
-  y_train <- as.numeric( train_smote_object[,match('class', names(train_smote_object))])
+  X_train <- train_smote_object[,-match('class', 
+                                        names(train_smote_object))]
+  y_train <- as.numeric(train_smote_object[,
+                        match('class', names(train_smote_object))])
   
   X_test <- data[-train_ind, -match(y_col, names(data))]
   y_test <- data[-train_ind, match(y_col, names(data))]
-  
-  return(list(X_train = X_train, X_test = X_test, y_train = y_train, y_test = y_test))
+
+  return(list(X_train = X_train, X_test = X_test, y_train = y_train, 
+              y_test = y_test))
 }
 
-splitted_data <- train_test_split_smote(data = all_data, y_col = 'misstate', frac = 0.7)
+splitted_data <- train_test_split_smote(data = all_data, 
+                                    y_col = 'misstate', frac = 0.7)
 
 X_train <- splitted_data$X_train
 X_test <- splitted_data$X_test
@@ -131,8 +141,10 @@ y_test <- splitted_data$y_test
 train <- X_train
 train$misstate <- y_train
 
-logit_all_data <- glm(misstate ~., data = train, family = "binomial")
-y_pred_logit_all_data <- predict.glm(logit_all_data, X_test, type = "response" )
+logit_all_data <- glm(misstate ~., data = train, 
+                      family = "binomial")
+y_pred_logit_all_data <- predict.glm(logit_all_data, 
+                                     X_test, type = "response" )
 
 evaluate(y_test, y_pred_logit_all_data)
 
@@ -162,9 +174,8 @@ summary(logit_all_data)
 
 ```{r}
 ## 2. MODELL MIT ROH-DATEN TRANIEREN
-
-splitted_data <- train_test_split_smote(data = raw_data, y_col = 'misstate', frac = 0.7)
-
+splitted_data <- train_test_split_smote(data = raw_data, 
+                                    y_col = 'misstate', frac = 0.7)
 X_train <- splitted_data$X_train
 X_test <- splitted_data$X_test
 y_train <- splitted_data$y_train
@@ -173,8 +184,10 @@ y_test <- splitted_data$y_test
 train <- X_train
 train$misstate <- y_train
 
-logit_raw_data <- glm(misstate ~., data = train, family = "binomial")
-y_pred_logit_raw_data <- predict.glm(logit_raw_data, X_test, type = "response" )
+logit_raw_data <- glm(misstate ~., data = train, 
+                      family = "binomial")
+y_pred_logit_raw_data <- predict.glm(logit_raw_data, X_test, 
+                                     type = "response" )
 
 evaluate(y_test, y_pred_logit_raw_data)
 ```
@@ -185,8 +198,8 @@ summary(logit_raw_data)
 
 ```{r}
 ## 3. MODELL MIT RATIO-DATEN TRANIEREN
-
-splitted_data <- train_test_split_smote(data = ratio_data, y_col = 'misstate', frac = 0.7)
+splitted_data <- train_test_split_smote(data = ratio_data, 
+                                    y_col = 'misstate', frac = 0.7)
 
 X_train <- splitted_data$X_train
 X_test <- splitted_data$X_test
@@ -196,8 +209,10 @@ y_test <- splitted_data$y_test
 train <- X_train
 train$misstate <- y_train
 
-logit_ratio_data <- glm(misstate ~., data = train, family = "binomial")
-y_pred_logit_ratio_data <- predict.glm(logit_ratio_data, X_test, type = "response" )
+logit_ratio_data <- glm(misstate ~., data = train,
+                        family = "binomial")
+y_pred_logit_ratio_data <- predict.glm(logit_ratio_data, X_test,
+                                       type = "response" )
 
 evaluate(y_test, y_pred_logit_ratio_data)
 ```

@@ -394,7 +394,7 @@ Quite a nice prickly friend.
 Vergangene und gegenwärtige Bilanzskandale wie ENRON, Worldcom oder Wirecard führen immer wieder zu Diskussionen über die Vertrauenswürdigkeit des Kapitalmarkts sowie über die Vertrauenswürdigkeit der Abschlussprüfung. Bilanzskandale führen weit-reichende Konsequenten mit sich welche eine genauere Analyse des Warums und wie anstoßen (vgl. Boecker/Zwirner 2012, S. 1).
 Diese Arbeit hat das Ziel, den Einsatz neuronaler Netze gegenüber der gängigeren Me-thode der logistischen Regression (vgl. Bao et al., 2020) zu vergleichen und dabei her-auszufinden, ob erstere signifikant besser darin sind, so viele Betrugsfälle wie möglich zu identifizieren, ohne die triviale Annahme zu treffen, dass jeder Fall ein Betrugsfall ist. Bei der Modellevaluation wird angenommen, dass ein nicht-identifizierter Betrugsfall doppelt so schwer wiegt, wie ein prognostizierter Betrugsfall, der sich als Nicht-Betrug herausstellt.
 Die Metrik zur Messung der Ergebnisse ist der \(F_{\beta}\)-Score (vgl. Tharwat 2020, S. 174). Dieser bildet das harmonische Mittel aus Präzision und Sensitivität. Die Präzision sagt aus, wie viele vorhergesagte Betrugsfälle tatsächlich Betrugsfälle sind, wobei die Sensi-tivität dabei auf die Frage antwortet, wie viele der tatsächlichen Betrugsfälle als solche identifiziert wurden. Weil die Sensitivität im Kontext der Fraud Detection bedeutungs-voller erscheint, wird sie in dieser Arbeit doppelt so hoch gewichtet wie die Präzision. Die Formel dieser Metrik lautet dabei:
-\[F_{\beta = 2} = (1+\beta^{2})*\frac{P*R}{\beta * P*R}\]
+\[F_{\beta} = (1+\beta^{2})*\frac{P*R}{\beta^{2} * P+R}\]
 
 \hypertarget{AccFraud_and_ML}{%
 \chapter{Accounting Fraud und Machine Learning}\label{AccFraud_and_ML}}
@@ -416,6 +416,88 @@ Zum Training und Test des Machine Learning Modells, wird ein Datensatz aus der V
 Da Accounting-Betrugsfälle eher seltener vorkommen (vgl. Dutta et al.~2011, S. 381), weist der Datensatz eine große Verteilungsungleichheit zwischen den Betrugs- und Nicht-betrugsfällen auf. Weniger als ein Prozent aller Einträge im Datensatz sind hierbei Betrugsfälle. Weitere Betrugsfälle könnten über andere Datenbanken gesucht werden, hierbei gibt es allerdings das Problem, dass die Betrugsfälle identifiziert und einzeln herausgesucht werden müssen. Daher besteht hier ein „class imbalance`` Problem, das mithilfe des Machine Learning Algorithmus gelöst werden muss.
 Zudem sind nur Betrugsfälle bis zum Jahr 2008 in diesem Datensatz erhalten, da die SEC nach der Finanzkrise ihre Prioritäten geändert hat (vgl. Bao et al.~2020, S. 208). Sollte sich die Art und Weise mit der Accounting-Betrug durchgeführt wird in den Jahren danach geändert haben, so können diese Fälle unter Umständen nicht vom Algorithmus erkannt werden.
 
+AB HIER HANDELT SICH DER AUFSCHRIEB MEHR UM NOTIZEN ALS UM EINE ABGABEFÄHIGE VERSION.
+
+Cleaning-Prozess-Reichenfolge:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Daten als ``data'' Laden
+\item
+  Spalten ``p\_aaer'' und ``new\_p\_aaer'' löschen
+\item
+  Alle Zeilen mit NaN-Werten löschen
+\item
+  all\_data bilden: Besteht nur aus 14 + 28 + 2 Vars
+\item
+  all\_data via Jahreszahl normalisieren. fyear droppen.
+\item
+  raw\_data (28 + 1 Vars) und ratio\_data (14 + 1 Vars) aus all\_data bilden
+\item
+  deskriptive Statistiken können mit den Datensätzen: min, Max, Mean, Median 0.25 und 0.75 Quantile UND normalisierte Boxplots und Histogramme. Ggf noch Ausreißer raus.
+\end{enumerate}
+
+Dann ist die Datenvorbereitung fertig und man kann Modelle damit rechnen. Bis zu dem Punkt geht die nächste Zelle:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\DocumentationTok{\#\# 1.}
+\NormalTok{data }\OtherTok{\textless{}{-}} \FunctionTok{import}\NormalTok{(}\StringTok{"data/uscecchini28.csv"}\NormalTok{)}
+
+\DocumentationTok{\#\# 2.}
+\NormalTok{data }\OtherTok{\textless{}{-}}\NormalTok{ data[,}\SpecialCharTok{{-}}\FunctionTok{match}\NormalTok{(}\FunctionTok{c}\NormalTok{(}\StringTok{"p\_aaer"}\NormalTok{, }\StringTok{"new\_p\_aaer"}\NormalTok{), }\FunctionTok{names}\NormalTok{(data))]}
+
+\DocumentationTok{\#\# 3.}
+\NormalTok{data }\OtherTok{\textless{}{-}}\NormalTok{ data[}\FunctionTok{complete.cases}\NormalTok{(data),]}
+
+\DocumentationTok{\#\# 4.}
+\NormalTok{all\_names }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\StringTok{"fyear"}\NormalTok{, }\StringTok{"misstate"}\NormalTok{, }\StringTok{"act"}\NormalTok{, }\StringTok{"ap"}\NormalTok{, }\StringTok{"at"}\NormalTok{, }\StringTok{"ceq"}\NormalTok{, }\StringTok{"che"}\NormalTok{, }
+               \StringTok{"cogs"}\NormalTok{, }\StringTok{"csho"}\NormalTok{, }\StringTok{"dlc"}\NormalTok{, }\StringTok{"dltis"}\NormalTok{, }\StringTok{"dltt"}\NormalTok{, }\StringTok{"dp"}\NormalTok{, }\StringTok{"ib"}\NormalTok{, }
+               \StringTok{"invt"}\NormalTok{, }\StringTok{"ivao"}\NormalTok{, }\StringTok{"ivst"}\NormalTok{, }\StringTok{"lct"}\NormalTok{, }\StringTok{"lt"}\NormalTok{, }\StringTok{"ni"}\NormalTok{, }\StringTok{"ppegt"}\NormalTok{, }
+               \StringTok{"pstk"}\NormalTok{, }\StringTok{"re"}\NormalTok{, }\StringTok{"rect"}\NormalTok{, }\StringTok{"sale"}\NormalTok{, }\StringTok{"sstk"}\NormalTok{, }\StringTok{"txp"}\NormalTok{, }\StringTok{"txt"}\NormalTok{, }
+               \StringTok{"xint"}\NormalTok{, }\StringTok{"prcc\_f"}\NormalTok{, }\StringTok{"dch\_wc"}\NormalTok{, }\StringTok{"ch\_rsst"}\NormalTok{, }\StringTok{"dch\_rec"}\NormalTok{, }
+               \StringTok{"dch\_inv"}\NormalTok{, }\StringTok{"soft\_assets"}\NormalTok{, }\StringTok{"dpi"}\NormalTok{, }\StringTok{"ch\_cs"}\NormalTok{, }\StringTok{"ch\_cm"}\NormalTok{, }
+               \StringTok{"ch\_roa"}\NormalTok{, }\StringTok{"ch\_fcf"}\NormalTok{, }\StringTok{"reoa"}\NormalTok{, }\StringTok{"EBIT"}\NormalTok{, }\StringTok{"issue"}\NormalTok{, }\StringTok{"bm"}\NormalTok{)}
+\NormalTok{all\_data }\OtherTok{\textless{}{-}}\NormalTok{ data[, }\FunctionTok{match}\NormalTok{(all\_names, }\FunctionTok{names}\NormalTok{(data))]}
+
+\DocumentationTok{\#\# 5. }
+\CommentTok{\# Funktion schreiben}
+\NormalTok{normalize }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(x)\{}
+  \FunctionTok{return}\NormalTok{((x }\SpecialCharTok{{-}} \FunctionTok{min}\NormalTok{(x)) }\SpecialCharTok{/}\NormalTok{ (}\FunctionTok{max}\NormalTok{(x) }\SpecialCharTok{{-}} \FunctionTok{min}\NormalTok{(x)))}
+\NormalTok{\}}
+\CommentTok{\# Funktion anwenden}
+\ControlFlowTok{for}\NormalTok{ (year }\ControlFlowTok{in} \FunctionTok{unique}\NormalTok{(all\_data}\SpecialCharTok{$}\NormalTok{fyear))\{}
+  \ControlFlowTok{for}\NormalTok{ (col }\ControlFlowTok{in} \FunctionTok{names}\NormalTok{(all\_data))\{}
+\NormalTok{    all\_data[data}\SpecialCharTok{$}\NormalTok{fyear }\SpecialCharTok{==}\NormalTok{ year, col] }\OtherTok{\textless{}{-}} \FunctionTok{normalize}\NormalTok{(}
+\NormalTok{      all\_data[data}\SpecialCharTok{$}\NormalTok{fyear }\SpecialCharTok{==}\NormalTok{ year, col]}
+\NormalTok{      ) }
+\NormalTok{  \}}
+\NormalTok{\}}
+\CommentTok{\# drop fyear{-}Variable}
+\NormalTok{all\_data }\OtherTok{\textless{}{-}}\NormalTok{ all\_data[, }\SpecialCharTok{{-}}\DecValTok{1}\NormalTok{] }
+
+\DocumentationTok{\#\# 6. }
+\NormalTok{raw\_names }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\StringTok{"misstate"}\NormalTok{, }\StringTok{"act"}\NormalTok{, }\StringTok{"ap"}\NormalTok{, }\StringTok{"at"}\NormalTok{, }\StringTok{"ceq"}\NormalTok{, }\StringTok{"che"}\NormalTok{, }\StringTok{"cogs"}\NormalTok{, }
+               \StringTok{"csho"}\NormalTok{, }\StringTok{"dlc"}\NormalTok{, }\StringTok{"dltis"}\NormalTok{, }\StringTok{"dltt"}\NormalTok{, }\StringTok{"dp"}\NormalTok{, }\StringTok{"ib"}\NormalTok{, }\StringTok{"invt"}\NormalTok{, }
+               \StringTok{"ivao"}\NormalTok{, }\StringTok{"ivst"}\NormalTok{, }\StringTok{"lct"}\NormalTok{, }\StringTok{"lt"}\NormalTok{, }\StringTok{"ni"}\NormalTok{, }\StringTok{"ppegt"}\NormalTok{, }\StringTok{"pstk"}\NormalTok{, }
+               \StringTok{"re"}\NormalTok{, }\StringTok{"rect"}\NormalTok{, }\StringTok{"sale"}\NormalTok{, }\StringTok{"sstk"}\NormalTok{, }\StringTok{"txp"}\NormalTok{, }\StringTok{"txt"}\NormalTok{, }\StringTok{"xint"}\NormalTok{, }
+               \StringTok{"prcc\_f"}\NormalTok{)}
+
+\NormalTok{ratio\_names }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(}\StringTok{"misstate"}\NormalTok{, }\StringTok{"dch\_wc"}\NormalTok{, }\StringTok{"ch\_rsst"}\NormalTok{, }\StringTok{"dch\_rec"}\NormalTok{, }
+                 \StringTok{"dch\_inv"}\NormalTok{, }\StringTok{"soft\_assets"}\NormalTok{, }\StringTok{"dpi"}\NormalTok{, }\StringTok{"ch\_cs"}\NormalTok{, }\StringTok{"ch\_cm"}\NormalTok{, }
+                 \StringTok{"ch\_roa"}\NormalTok{, }\StringTok{"ch\_fcf"}\NormalTok{, }\StringTok{"reoa"}\NormalTok{, }\StringTok{"EBIT"}\NormalTok{, }\StringTok{"issue"}\NormalTok{, }\StringTok{"bm"}\NormalTok{)}
+
+\NormalTok{raw\_data }\OtherTok{\textless{}{-}}\NormalTok{ all\_data[, }\FunctionTok{match}\NormalTok{(raw\_names, }\FunctionTok{names}\NormalTok{(all\_data))]}
+\NormalTok{ratio\_data }\OtherTok{\textless{}{-}}\NormalTok{ all\_data[, }\FunctionTok{match}\NormalTok{(ratio\_names, }\FunctionTok{names}\NormalTok{(all\_data))]}
+
+\CommentTok{\# ==================================================================| Maximale Breite bis zum Strich}
+
+\DocumentationTok{\#\# 7. Statistiken erstellen. SKIP. }
+\end{Highlighting}
+\end{Shaded}
+
 \hypertarget{methods}{%
 \chapter{Methoden}\label{methods}}
 
@@ -423,840 +505,415 @@ Diese Arbeit vergleicht die Vorhersagequalität der in der Accounting Fraud Dete
 Die logistische Regression ist eng mit der linearen Regression verwandt und wird zur binären Schätzung einer Klassenzugehörigkeit verwandt (vgl. Géron 2019, S. 144). Dabei berechnet sie eine gewichtete Summe von Inputfaktoren und aggregiert sie zu einer Wahrscheinlichkeit zwischen 0 und 1. Liegt diese Wahrscheinlichkeit bei mindestens 0.5, so wird die Klasse „1`` vorhergesagt, welcher in dieser Arbeit der Klasse „fraud`` entspricht (vgl. Géron 2019, S. 144). Hierzu wird für jedes Attribut einer Beobachtung eine Sigmoid-Funktion verwendet, welche S-förmig vom Minimum bis zum Maximum des jeweiligen Attributs verläuft und die Verteilungen der Merkmalsausprägungen möglichst gut nach Klassenzugehörigkeit abgrenzt. Je weiter eine Merkmalsausprägung von dieser Grenze entfernt ist, desto näher ist der Funktionswert an der 1 oder der 0 (vgl. Géron 2019, S. 148).
 Neuronale Netze bestehen aus drei Sorten von Schichten: Input-Schichten, welche Daten einlesen, versteckte Schichten, welche die Daten verarbeiten und Output-Schichten, welche aus den verarbeiteten Daten eine Prognose ableiten (vgl. Géron 2019, S. 286). In dieser Arbeit besteht die Output-Schicht aus lediglich einem Knoten, welche die Klassen „fraud`` abbildet. Die Anzahl der Knoten der Input-Schicht entspricht der Anzahl der Variablen im Datensatz. Die Knoten einer Schicht sind jeweils mit jedem Knoten seiner nachfolgenden Schicht durch „Gewichte`` verbunden. Jeder einzelne Knoten aggregiert die Signale, die er empfängt über deren Gewichte zu einer Zahl und wendet eine Aktivierungsfunktion an (vgl. Géron 2019, S. 282). Übersteigt der Funktionswert einen gegeben Schwellenwert, so „feuert`` das Neuron, was bedeutet, dass es ein Signal größer 0 an die Neuronen der nächsten Schicht weitergibt (vgl. Géron 2019, S. 282-283). Die Gewichte und alle Schwellenwerte werden durch Backpropagation unter Zuhilfenahme des Gradient Descent Algorithmus verbessert (vgl. Géron 2019, S.119 und S, 286). Sind alle Trainingsdaten einmal zum Training herangezogen worden, bedeutet das, dass das Netz für „eine Epoche`` trainiert wurde (vgl. Géron 2019, S. 127). In dieser Arbeit wird ein Netz über 100 Epochen hinweg trainiert.
 
+AB HIER HANDELT SICH DER AUFSCHRIEB MEHR UM NOTIZEN ALS UM EINE ABGABEFÄHIGE VERSION.
+
+TODO:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Evaluate-Funktion bilden
+\item
+  LogReg mit allen Daten. Ablauf:
+
+  \begin{enumerate}
+  \def\labelenumii{\arabic{enumii}.}
+  \tightlist
+  \item
+    Train-test-Split (X\_train, y\_train, X\_test, y\_test)
+  \item
+    SOMTE in X\_train anwenden, seed = 42
+  \item
+    Training
+  \item
+    Prediction (in y\_pred speichern)
+  \item
+    Evaluate-Funktion anwenden
+  \end{enumerate}
+\item
+  LogReg mit Rohdaten
+
+  \begin{enumerate}
+  \def\labelenumii{\arabic{enumii}.}
+  \tightlist
+  \item
+    \ldots{}
+  \end{enumerate}
+\item
+  LogReg mit Ratios
+
+  \begin{enumerate}
+  \def\labelenumii{\arabic{enumii}.}
+  \tightlist
+  \item
+    \ldots{}
+  \end{enumerate}
+\item
+  Summary von allen 3 Modellen
+\end{enumerate}
+
 \begin{Shaded}
 \begin{Highlighting}[]
-\FunctionTok{library}\NormalTok{(readr)}
-\NormalTok{data }\OtherTok{\textless{}{-}} \FunctionTok{read\_csv}\NormalTok{(}\StringTok{"data/data.csv"}\NormalTok{)}
+\DocumentationTok{\#\# 1. EVALUATE BILDEN}
+\NormalTok{evaluate }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(test, pred, }\AttributeTok{border =} \FloatTok{0.5}\NormalTok{)\{}
+  
+\NormalTok{  pred }\OtherTok{\textless{}{-}} \FunctionTok{ifelse}\NormalTok{(pred }\SpecialCharTok{\textgreater{}}\NormalTok{ border, }\DecValTok{1}\NormalTok{, }\DecValTok{0}\NormalTok{)}
+\NormalTok{  confusion }\OtherTok{\textless{}{-}} \FunctionTok{table}\NormalTok{(test, pred)}
+\NormalTok{  TN }\OtherTok{\textless{}{-}}\NormalTok{ confusion[}\DecValTok{1}\NormalTok{,}\DecValTok{1}\NormalTok{]}
+\NormalTok{  TP }\OtherTok{\textless{}{-}}\NormalTok{ confusion[}\DecValTok{2}\NormalTok{,}\DecValTok{2}\NormalTok{]}
+\NormalTok{  FP }\OtherTok{\textless{}{-}}\NormalTok{ confusion[}\DecValTok{1}\NormalTok{,}\DecValTok{2}\NormalTok{]}
+\NormalTok{  FN }\OtherTok{\textless{}{-}}\NormalTok{ confusion[}\DecValTok{2}\NormalTok{,}\DecValTok{1}\NormalTok{]}
+
+\NormalTok{  total\_acc }\OtherTok{\textless{}{-}} \FunctionTok{numeric}\NormalTok{(}\DecValTok{2}\NormalTok{)}
+\NormalTok{  total\_acc[}\DecValTok{1}\NormalTok{] }\OtherTok{\textless{}{-}} \ConstantTok{NaN}
+\NormalTok{  total\_acc[}\DecValTok{2}\NormalTok{] }\OtherTok{\textless{}{-}} \FunctionTok{round}\NormalTok{((TN }\SpecialCharTok{+}\NormalTok{ TP) }\SpecialCharTok{/} \FunctionTok{sum}\NormalTok{(confusion),}\DecValTok{4}\NormalTok{)}
+
+\NormalTok{  prec }\OtherTok{\textless{}{-}} \FunctionTok{numeric}\NormalTok{(}\DecValTok{2}\NormalTok{)}
+\NormalTok{  prec[}\DecValTok{1}\NormalTok{] }\OtherTok{\textless{}{-}} \ConstantTok{NaN}
+\NormalTok{  prec[}\DecValTok{2}\NormalTok{] }\OtherTok{\textless{}{-}} \FunctionTok{round}\NormalTok{(TP }\SpecialCharTok{/}\NormalTok{ (TP }\SpecialCharTok{+}\NormalTok{ FP),}\DecValTok{4}\NormalTok{)}
+  
+\NormalTok{  sens }\OtherTok{\textless{}{-}} \FunctionTok{numeric}\NormalTok{(}\DecValTok{2}\NormalTok{)}
+\NormalTok{  sens[}\DecValTok{1}\NormalTok{] }\OtherTok{\textless{}{-}} \ConstantTok{NaN}
+\NormalTok{  sens[}\DecValTok{2}\NormalTok{] }\OtherTok{\textless{}{-}} \FunctionTok{round}\NormalTok{(TP }\SpecialCharTok{/}\NormalTok{ (TP }\SpecialCharTok{+}\NormalTok{ FN),}\DecValTok{4}\NormalTok{)}
+  
+\NormalTok{  F1 }\OtherTok{\textless{}{-}} \FunctionTok{numeric}\NormalTok{(}\DecValTok{2}\NormalTok{)}
+\NormalTok{  F1[}\DecValTok{1}\NormalTok{] }\OtherTok{\textless{}{-}} \ConstantTok{NaN}
+\NormalTok{  F1[}\DecValTok{2}\NormalTok{] }\OtherTok{\textless{}{-}} \FunctionTok{round}\NormalTok{(}\DecValTok{2}\SpecialCharTok{*}\NormalTok{(prec[}\DecValTok{2}\NormalTok{]}\SpecialCharTok{*}\NormalTok{sens[}\DecValTok{2}\NormalTok{])}\SpecialCharTok{/}\NormalTok{(prec[}\DecValTok{2}\NormalTok{] }\SpecialCharTok{+}\NormalTok{ sens[}\DecValTok{2}\NormalTok{]), }\DecValTok{4}\NormalTok{)}
+
+\NormalTok{  F.score }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(beta, }\AttributeTok{p =}\NormalTok{ prec[}\DecValTok{2}\NormalTok{], }\AttributeTok{s =}\NormalTok{ sens[}\DecValTok{2}\NormalTok{])\{}
+    \FunctionTok{round}\NormalTok{((}\DecValTok{1} \SpecialCharTok{+}\NormalTok{ beta}\SpecialCharTok{\^{}}\DecValTok{2}\NormalTok{)}\SpecialCharTok{*}\NormalTok{(p}\SpecialCharTok{*}\NormalTok{s)}\SpecialCharTok{/}\NormalTok{(beta}\SpecialCharTok{\^{}}\DecValTok{2}\SpecialCharTok{*}\NormalTok{p }\SpecialCharTok{+}\NormalTok{ s),}\DecValTok{4}\NormalTok{)}
+\NormalTok{  \}}
+  
+\NormalTok{  F2 }\OtherTok{\textless{}{-}} \FunctionTok{numeric}\NormalTok{(}\DecValTok{2}\NormalTok{)}
+\NormalTok{  F2[}\DecValTok{1}\NormalTok{] }\OtherTok{\textless{}{-}} \ConstantTok{NaN}
+\NormalTok{  F2[}\DecValTok{2}\NormalTok{] }\OtherTok{\textless{}{-}} \FunctionTok{F.score}\NormalTok{(}\DecValTok{2}\NormalTok{)}
+  
+\NormalTok{  F}\FloatTok{.5} \OtherTok{\textless{}{-}} \FunctionTok{numeric}\NormalTok{(}\DecValTok{2}\NormalTok{)}
+\NormalTok{  F}\FloatTok{.5}\NormalTok{[}\DecValTok{1}\NormalTok{] }\OtherTok{\textless{}{-}} \ConstantTok{NaN}
+\NormalTok{  F}\FloatTok{.5}\NormalTok{[}\DecValTok{2}\NormalTok{] }\OtherTok{\textless{}{-}} \FunctionTok{F.score}\NormalTok{(}\FloatTok{0.5}\NormalTok{)}
+  
+  \FunctionTok{return}\NormalTok{(}\FunctionTok{cbind}\NormalTok{(confusion, total\_acc, prec, sens, F1, F2, F}\FloatTok{.5}\NormalTok{))}
+  
+\NormalTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\DocumentationTok{\#\# 2. MODELL MIT ALLEN DATEN TRANIEREN}
+\NormalTok{train\_test\_split\_smote}\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(data, y\_col, }\AttributeTok{frac =} \FloatTok{0.7}\NormalTok{, }\AttributeTok{seed =} \DecValTok{42}\NormalTok{, }
+                                  \AttributeTok{k =} \DecValTok{5}\NormalTok{)\{}
+  \FunctionTok{set.seed}\NormalTok{(seed)}
+  
+\NormalTok{  smp\_size }\OtherTok{\textless{}{-}} \FunctionTok{floor}\NormalTok{(frac }\SpecialCharTok{*} \FunctionTok{nrow}\NormalTok{(data))}
+\NormalTok{  train\_ind }\OtherTok{\textless{}{-}} \FunctionTok{sample}\NormalTok{(}\FunctionTok{seq\_len}\NormalTok{(}\FunctionTok{nrow}\NormalTok{(data)), }\AttributeTok{size =}\NormalTok{ smp\_size)}
+  
+\NormalTok{  X\_smote }\OtherTok{\textless{}{-}}\NormalTok{ data[train\_ind, }\SpecialCharTok{{-}}\FunctionTok{match}\NormalTok{(y\_col, }\FunctionTok{names}\NormalTok{(data))]}
+\NormalTok{  y\_smote }\OtherTok{\textless{}{-}}\NormalTok{ data[train\_ind, }\FunctionTok{match}\NormalTok{(y\_col, }\FunctionTok{names}\NormalTok{(data))]}
+  
+\NormalTok{  true\_frac }\OtherTok{\textless{}{-}} \FunctionTok{sum}\NormalTok{(y\_smote) }\SpecialCharTok{/} \FunctionTok{length}\NormalTok{(y\_smote)}
+  
+\NormalTok{  train\_smote\_object }\OtherTok{\textless{}{-}} \FunctionTok{SMOTE}\NormalTok{(X\_smote, y\_smote, }\AttributeTok{K =} \DecValTok{5}\NormalTok{, }
+                              \AttributeTok{dup\_size =} \DecValTok{1} \SpecialCharTok{/}\NormalTok{ true\_frac)}\SpecialCharTok{$}\NormalTok{data}
+  
+\NormalTok{  X\_train }\OtherTok{\textless{}{-}}\NormalTok{ train\_smote\_object[,}\SpecialCharTok{{-}}\FunctionTok{match}\NormalTok{(}\StringTok{\textquotesingle{}class\textquotesingle{}}\NormalTok{, }
+                                        \FunctionTok{names}\NormalTok{(train\_smote\_object))]}
+\NormalTok{  y\_train }\OtherTok{\textless{}{-}} \FunctionTok{as.numeric}\NormalTok{(train\_smote\_object[,}
+                        \FunctionTok{match}\NormalTok{(}\StringTok{\textquotesingle{}class\textquotesingle{}}\NormalTok{, }\FunctionTok{names}\NormalTok{(train\_smote\_object))])}
+  
+\NormalTok{  X\_test }\OtherTok{\textless{}{-}}\NormalTok{ data[}\SpecialCharTok{{-}}\NormalTok{train\_ind, }\SpecialCharTok{{-}}\FunctionTok{match}\NormalTok{(y\_col, }\FunctionTok{names}\NormalTok{(data))]}
+\NormalTok{  y\_test }\OtherTok{\textless{}{-}}\NormalTok{ data[}\SpecialCharTok{{-}}\NormalTok{train\_ind, }\FunctionTok{match}\NormalTok{(y\_col, }\FunctionTok{names}\NormalTok{(data))]}
+
+  \FunctionTok{return}\NormalTok{(}\FunctionTok{list}\NormalTok{(}\AttributeTok{X\_train =}\NormalTok{ X\_train, }\AttributeTok{X\_test =}\NormalTok{ X\_test, }\AttributeTok{y\_train =}\NormalTok{ y\_train, }
+              \AttributeTok{y\_test =}\NormalTok{ y\_test))}
+\NormalTok{\}}
+
+\NormalTok{splitted\_data }\OtherTok{\textless{}{-}} \FunctionTok{train\_test\_split\_smote}\NormalTok{(}\AttributeTok{data =}\NormalTok{ all\_data, }
+                                    \AttributeTok{y\_col =} \StringTok{\textquotesingle{}misstate\textquotesingle{}}\NormalTok{, }\AttributeTok{frac =} \FloatTok{0.7}\NormalTok{)}
+
+\NormalTok{X\_train }\OtherTok{\textless{}{-}}\NormalTok{ splitted\_data}\SpecialCharTok{$}\NormalTok{X\_train}
+\NormalTok{X\_test }\OtherTok{\textless{}{-}}\NormalTok{ splitted\_data}\SpecialCharTok{$}\NormalTok{X\_test}
+\NormalTok{y\_train }\OtherTok{\textless{}{-}}\NormalTok{ splitted\_data}\SpecialCharTok{$}\NormalTok{y\_train}
+\NormalTok{y\_test }\OtherTok{\textless{}{-}}\NormalTok{ splitted\_data}\SpecialCharTok{$}\NormalTok{y\_test}
+
+\NormalTok{train }\OtherTok{\textless{}{-}}\NormalTok{ X\_train}
+\NormalTok{train}\SpecialCharTok{$}\NormalTok{misstate }\OtherTok{\textless{}{-}}\NormalTok{ y\_train}
+
+\NormalTok{logit\_all\_data }\OtherTok{\textless{}{-}} \FunctionTok{glm}\NormalTok{(misstate }\SpecialCharTok{\textasciitilde{}}\NormalTok{., }\AttributeTok{data =}\NormalTok{ train, }
+                      \AttributeTok{family =} \StringTok{"binomial"}\NormalTok{)}
+\NormalTok{y\_pred\_logit\_all\_data }\OtherTok{\textless{}{-}} \FunctionTok{predict.glm}\NormalTok{(logit\_all\_data, }
+\NormalTok{                                     X\_test, }\AttributeTok{type =} \StringTok{"response"}\NormalTok{ )}
+
+\FunctionTok{evaluate}\NormalTok{(y\_test, y\_pred\_logit\_all\_data)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##       0     1 total_acc   prec   sens     F1     F2    F.5
+## 0 24068 10624       NaN    NaN    NaN    NaN    NaN    NaN
+## 1    91   161    0.6934 0.0149 0.6389 0.0291 0.0681 0.0185
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{tpr }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{()}
+\NormalTok{pre }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{()}
+\ControlFlowTok{for}\NormalTok{(i }\ControlFlowTok{in} \FunctionTok{seq}\NormalTok{(}\FloatTok{0.001}\NormalTok{, }\FloatTok{0.999}\NormalTok{, }\FloatTok{0.01}\NormalTok{))\{}
+\NormalTok{  res }\OtherTok{\textless{}{-}} \FunctionTok{evaluate}\NormalTok{(y\_test, y\_pred\_logit\_all\_data, }\AttributeTok{border =}\NormalTok{ i)}
+\NormalTok{  pre }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(pre, }\DecValTok{1} \SpecialCharTok{{-}}\NormalTok{ res[}\DecValTok{2}\NormalTok{, }\StringTok{"prec"}\NormalTok{])}
+\NormalTok{  tpr }\OtherTok{\textless{}{-}} \FunctionTok{c}\NormalTok{(tpr, res[}\DecValTok{2}\NormalTok{, }\StringTok{"sens"}\NormalTok{])}
+\NormalTok{\}}
+
+\NormalTok{TPR }\OtherTok{\textless{}{-}} \FunctionTok{seq}\NormalTok{(}\DecValTok{0}\NormalTok{,}\DecValTok{1}\NormalTok{,}\FloatTok{0.1}\NormalTok{)}
+\NormalTok{PREC }\OtherTok{\textless{}{-}} \FunctionTok{seq}\NormalTok{(}\DecValTok{0}\NormalTok{,}\DecValTok{1}\NormalTok{,}\FloatTok{0.1}\NormalTok{)}
+
+\FunctionTok{plot}\NormalTok{(PREC, TPR, }\AttributeTok{type=}\StringTok{"l"}\NormalTok{, }\AttributeTok{col=}\StringTok{"green"}\NormalTok{)}
+\FunctionTok{lines}\NormalTok{(pre, tpr, }\AttributeTok{type =} \StringTok{"s"}\NormalTok{, }\AttributeTok{col =} \StringTok{"red"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{_main_files/figure-latex/unnamed-chunk-6-1.pdf}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{summary}\NormalTok{(logit\_all\_data)}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{verbatim}
 ## 
-## -- Column specification --------------------------------------------------------
-## cols(
-##   .default = col_double()
-## )
-## i Use `spec()` for the full column specifications.
+## Call:
+## glm(formula = misstate ~ ., family = "binomial", data = train)
+## 
+## Deviance Residuals: 
+##     Min       1Q   Median       3Q      Max  
+## -5.5406  -0.9641   0.1000   0.9745   5.5802  
+## 
+## Coefficients:
+##              Estimate Std. Error z value Pr(>|z|)    
+## (Intercept) -23.75983    0.50318 -47.219  < 2e-16 ***
+## act          11.12570    1.41279   7.875 3.41e-15 ***
+## ap            1.98894    0.49944   3.982 6.82e-05 ***
+## at           10.80001    0.82025  13.167  < 2e-16 ***
+## ceq          -5.65817    0.16604 -34.078  < 2e-16 ***
+## che          -3.62274    0.73212  -4.948 7.49e-07 ***
+## cogs         29.99856    1.55593  19.280  < 2e-16 ***
+## csho          6.41974    0.27687  23.187  < 2e-16 ***
+## dlc         -12.09188    0.76046 -15.901  < 2e-16 ***
+## dltis        -2.55895    0.39298  -6.512 7.43e-11 ***
+## dltt         17.01835    0.72114  23.599  < 2e-16 ***
+## dp           -6.59251    0.65110 -10.125  < 2e-16 ***
+## ib           -0.24714    0.13140  -1.881  0.06000 .  
+## invt         -3.59020    0.53125  -6.758 1.40e-11 ***
+## ivao          1.37159    0.43429   3.158  0.00159 ** 
+## ivst         -2.32630    0.48566  -4.790 1.67e-06 ***
+## lct          18.48910    1.38337  13.365  < 2e-16 ***
+## lt          -35.46112    1.37644 -25.763  < 2e-16 ***
+## ni            1.39985    0.12153  11.518  < 2e-16 ***
+## ppegt        -6.34845    0.65147  -9.745  < 2e-16 ***
+## pstk         -7.67877    0.35223 -21.800  < 2e-16 ***
+## re            4.27251    0.05994  71.281  < 2e-16 ***
+## rect          2.51693    0.80673   3.120  0.00181 ** 
+## sale        -35.36934    1.76975 -19.986  < 2e-16 ***
+## sstk          1.57673    0.23121   6.819 9.15e-12 ***
+## txp          -3.70640    0.36741 -10.088  < 2e-16 ***
+## txt          -0.55736    0.06326  -8.811  < 2e-16 ***
+## xint          6.73976    0.38732  17.401  < 2e-16 ***
+## prcc_f       12.19458    0.26323  46.327  < 2e-16 ***
+## dch_wc       -1.97133    0.12683 -15.543  < 2e-16 ***
+## ch_rsst       3.04583    0.15251  19.971  < 2e-16 ***
+## dch_rec       1.61872    0.06807  23.779  < 2e-16 ***
+## dch_inv       1.30387    0.06491  20.089  < 2e-16 ***
+## soft_assets   2.03327    0.02586  78.635  < 2e-16 ***
+## dpi          -0.49160    0.06295  -7.809 5.76e-15 ***
+## ch_cs         0.98542    0.09663  10.198  < 2e-16 ***
+## ch_cm        -0.57042    0.10192  -5.597 2.18e-08 ***
+## ch_roa       -2.12709    0.12845 -16.559  < 2e-16 ***
+## ch_fcf        1.91612    0.19656   9.748  < 2e-16 ***
+## reoa         22.60563    0.59876  37.754  < 2e-16 ***
+## EBIT         -3.30312    0.20996 -15.732  < 2e-16 ***
+## issue         0.66310    0.02341  28.324  < 2e-16 ***
+## bm           -0.39105    0.08582  -4.557 5.19e-06 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 225660  on 162783  degrees of freedom
+## Residual deviance: 184472  on 162741  degrees of freedom
+## AIC: 184558
+## 
+## Number of Fisher Scoring iterations: 7
 \end{verbatim}
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\CommentTok{\# str(data)}
+\DocumentationTok{\#\# 2. MODELL MIT ROH{-}DATEN TRANIEREN}
+\NormalTok{splitted\_data }\OtherTok{\textless{}{-}} \FunctionTok{train\_test\_split\_smote}\NormalTok{(}\AttributeTok{data =}\NormalTok{ raw\_data, }
+                                    \AttributeTok{y\_col =} \StringTok{\textquotesingle{}misstate\textquotesingle{}}\NormalTok{, }\AttributeTok{frac =} \FloatTok{0.7}\NormalTok{)}
+\NormalTok{X\_train }\OtherTok{\textless{}{-}}\NormalTok{ splitted\_data}\SpecialCharTok{$}\NormalTok{X\_train}
+\NormalTok{X\_test }\OtherTok{\textless{}{-}}\NormalTok{ splitted\_data}\SpecialCharTok{$}\NormalTok{X\_test}
+\NormalTok{y\_train }\OtherTok{\textless{}{-}}\NormalTok{ splitted\_data}\SpecialCharTok{$}\NormalTok{y\_train}
+\NormalTok{y\_test }\OtherTok{\textless{}{-}}\NormalTok{ splitted\_data}\SpecialCharTok{$}\NormalTok{y\_test}
 
-\FunctionTok{dim}\NormalTok{(data)}
+\NormalTok{train }\OtherTok{\textless{}{-}}\NormalTok{ X\_train}
+\NormalTok{train}\SpecialCharTok{$}\NormalTok{misstate }\OtherTok{\textless{}{-}}\NormalTok{ y\_train}
+
+\NormalTok{logit\_raw\_data }\OtherTok{\textless{}{-}} \FunctionTok{glm}\NormalTok{(misstate }\SpecialCharTok{\textasciitilde{}}\NormalTok{., }\AttributeTok{data =}\NormalTok{ train, }
+                      \AttributeTok{family =} \StringTok{"binomial"}\NormalTok{)}
+\NormalTok{y\_pred\_logit\_raw\_data }\OtherTok{\textless{}{-}} \FunctionTok{predict.glm}\NormalTok{(logit\_raw\_data, X\_test, }
+                                     \AttributeTok{type =} \StringTok{"response"}\NormalTok{ )}
+
+\FunctionTok{evaluate}\NormalTok{(y\_test, y\_pred\_logit\_raw\_data)}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 31990    51
+##       0     1 total_acc   prec   sens     F1    F2    F.5
+## 0 24616 10076       NaN    NaN    NaN    NaN   NaN    NaN
+## 1   115   137    0.7084 0.0134 0.5437 0.0262 0.061 0.0166
 \end{verbatim}
-
-Wir haben 31990 Beobachtungen auf 51 Variablen. Wir müssen die fehlenden Werte Ientifizieren und die Spalten, welche zu viele davon enthalten löschen. Danach löschen wir die übrigen Zeilen, welche NaNs enthalten. Dies dient dem Umstand, dass NN mit NaN-Werten nicht arbeiten können. Wir verwenden für LogReg und NN den glichen Datensatz, um die Performance der Modelle vergleichen zu können.
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\ControlFlowTok{for}\NormalTok{ (col }\ControlFlowTok{in} \FunctionTok{colnames}\NormalTok{(data))\{}
-\NormalTok{  nan\_number }\OtherTok{=} \FunctionTok{sum}\NormalTok{(}\FunctionTok{is.na}\NormalTok{(data[col]))}
-  \FunctionTok{print}\NormalTok{(}\FunctionTok{paste}\NormalTok{(col, nan\_number ))}
-\NormalTok{\}}
+\FunctionTok{summary}\NormalTok{(logit\_raw\_data)}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{verbatim}
-## [1] "fyear 0"
-## [1] "gvkey 0"
-## [1] "sich 199"
-## [1] "insbnk 0"
-## [1] "understatement 0"
-## [1] "option 0"
-## [1] "p_aaer 31846"
-## [1] "new_p_aaer 31846"
-## [1] "misstate 0"
-## [1] "act 0"
-## [1] "ap 0"
-## [1] "at 0"
-## [1] "ceq 0"
-## [1] "che 0"
-## [1] "cogs 0"
-## [1] "csho 0"
-## [1] "dlc 0"
-## [1] "dltis 0"
-## [1] "dltt 0"
-## [1] "dp 0"
-## [1] "ib 0"
-## [1] "invt 0"
-## [1] "ivao 0"
-## [1] "ivst 0"
-## [1] "lct 0"
-## [1] "lt 0"
-## [1] "ni 0"
-## [1] "ppegt 0"
-## [1] "pstk 0"
-## [1] "re 0"
-## [1] "rect 0"
-## [1] "sale 0"
-## [1] "sstk 0"
-## [1] "txp 0"
-## [1] "txt 0"
-## [1] "xint 0"
-## [1] "prcc_f 0"
-## [1] "dch_wc 723"
-## [1] "ch_rsst 734"
-## [1] "dch_rec 678"
-## [1] "dch_inv 681"
-## [1] "soft_assets 13"
-## [1] "ch_cs 3631"
-## [1] "ch_cm 3763"
-## [1] "ch_roa 3380"
-## [1] "issue 0"
-## [1] "bm 6"
-## [1] "dpi 1084"
-## [1] "reoa 13"
-## [1] "EBIT 13"
-## [1] "ch_fcf 836"
+## 
+## Call:
+## glm(formula = misstate ~ ., family = "binomial", data = train)
+## 
+## Deviance Residuals: 
+##     Min       1Q   Median       3Q      Max  
+## -5.7581  -1.0411   0.0837   1.1359   3.3212  
+## 
+## Coefficients:
+##              Estimate Std. Error z value Pr(>|z|)    
+## (Intercept)  -1.04527    0.01501 -69.648  < 2e-16 ***
+## act           8.96766    1.37982   6.499 8.08e-11 ***
+## ap            5.63238    0.50424  11.170  < 2e-16 ***
+## at           20.18742    0.94107  21.451  < 2e-16 ***
+## ceq          -4.94838    0.15049 -32.882  < 2e-16 ***
+## che          -7.32059    0.73408  -9.972  < 2e-16 ***
+## cogs         25.58273    1.52700  16.754  < 2e-16 ***
+## csho          5.23000    0.26738  19.560  < 2e-16 ***
+## dlc          -9.52638    0.74396 -12.805  < 2e-16 ***
+## dltis        -2.06434    0.36976  -5.583 2.37e-08 ***
+## dltt         16.47397    0.72063  22.861  < 2e-16 ***
+## dp           -8.53646    0.65377 -13.057  < 2e-16 ***
+## ib           -0.05232    0.11352  -0.461 0.644863    
+## invt         -1.16582    0.51706  -2.255 0.024151 *  
+## ivao          0.96618    0.44619   2.165 0.030358 *  
+## ivst         -1.72751    0.52092  -3.316 0.000912 ***
+## lct          14.80146    1.36620  10.834  < 2e-16 ***
+## lt          -38.23713    1.37870 -27.734  < 2e-16 ***
+## ni            1.27856    0.10622  12.037  < 2e-16 ***
+## ppegt       -13.45517    0.71929 -18.706  < 2e-16 ***
+## pstk         -9.80106    0.36253 -27.035  < 2e-16 ***
+## re            3.64993    0.05327  68.517  < 2e-16 ***
+## rect          5.92899    0.79359   7.471 7.95e-14 ***
+## sale        -31.50988    1.74106 -18.098  < 2e-16 ***
+## sstk          1.79127    0.23203   7.720 1.16e-14 ***
+## txp          -4.02413    0.36272 -11.094  < 2e-16 ***
+## txt          -1.08172    0.05855 -18.475  < 2e-16 ***
+## xint          5.42623    0.37607  14.429  < 2e-16 ***
+## prcc_f       11.17267    0.23612  47.317  < 2e-16 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 225660  on 162783  degrees of freedom
+## Residual deviance: 205190  on 162755  degrees of freedom
+## AIC: 205248
+## 
+## Number of Fisher Scoring iterations: 6
 \end{verbatim}
-
-Die Variable, ``p\_aaer'' und ``new\_p\_aaer'' fallen durch extrem viele NaN-Werte auf und werden komplett entfernt. Die übrigen Variablen bestehen zu maximal ca 10\% aus NaN-Werten und werden daher als unbedenklich eingestuft. ``new\_p\_aaer'' und alle Beobachtungen, welche NaN-Werte enthalten, werden beseitigt.
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{data }\OtherTok{\textless{}{-}}\NormalTok{ data[, }\SpecialCharTok{{-}}\FunctionTok{match}\NormalTok{(}\FunctionTok{c}\NormalTok{(}\StringTok{"new\_p\_aaer"}\NormalTok{, }\StringTok{"p\_aaer"}\NormalTok{), }\FunctionTok{names}\NormalTok{(data))]}
-\NormalTok{data }\OtherTok{\textless{}{-}}\NormalTok{ data[}\FunctionTok{complete.cases}\NormalTok{(data),]}
-\FunctionTok{dim}\NormalTok{(data)}
+\DocumentationTok{\#\# 3. MODELL MIT RATIO{-}DATEN TRANIEREN}
+\NormalTok{splitted\_data }\OtherTok{\textless{}{-}} \FunctionTok{train\_test\_split\_smote}\NormalTok{(}\AttributeTok{data =}\NormalTok{ ratio\_data, }
+                                    \AttributeTok{y\_col =} \StringTok{\textquotesingle{}misstate\textquotesingle{}}\NormalTok{, }\AttributeTok{frac =} \FloatTok{0.7}\NormalTok{)}
+
+\NormalTok{X\_train }\OtherTok{\textless{}{-}}\NormalTok{ splitted\_data}\SpecialCharTok{$}\NormalTok{X\_train}
+\NormalTok{X\_test }\OtherTok{\textless{}{-}}\NormalTok{ splitted\_data}\SpecialCharTok{$}\NormalTok{X\_test}
+\NormalTok{y\_train }\OtherTok{\textless{}{-}}\NormalTok{ splitted\_data}\SpecialCharTok{$}\NormalTok{y\_train}
+\NormalTok{y\_test }\OtherTok{\textless{}{-}}\NormalTok{ splitted\_data}\SpecialCharTok{$}\NormalTok{y\_test}
+
+\NormalTok{train }\OtherTok{\textless{}{-}}\NormalTok{ X\_train}
+\NormalTok{train}\SpecialCharTok{$}\NormalTok{misstate }\OtherTok{\textless{}{-}}\NormalTok{ y\_train}
+
+\NormalTok{logit\_ratio\_data }\OtherTok{\textless{}{-}} \FunctionTok{glm}\NormalTok{(misstate }\SpecialCharTok{\textasciitilde{}}\NormalTok{., }\AttributeTok{data =}\NormalTok{ train,}
+                        \AttributeTok{family =} \StringTok{"binomial"}\NormalTok{)}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{verbatim}
-## [1] 27792    49
+## Warning: glm.fit: fitted probabilities numerically 0 or 1 occurred
 \end{verbatim}
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\FunctionTok{print}\NormalTok{(data[}\DecValTok{5}\NormalTok{,])}
+\NormalTok{y\_pred\_logit\_ratio\_data }\OtherTok{\textless{}{-}} \FunctionTok{predict.glm}\NormalTok{(logit\_ratio\_data, X\_test,}
+                                       \AttributeTok{type =} \StringTok{"response"}\NormalTok{ )}
+
+\FunctionTok{evaluate}\NormalTok{(y\_test, y\_pred\_logit\_ratio\_data)}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{verbatim}
-## # A tibble: 1 x 49
-##   fyear gvkey  sich insbnk understatement option misstate   act    ap    at
-##   <dbl> <dbl> <dbl>  <dbl>          <dbl>  <dbl>    <dbl> <dbl> <dbl> <dbl>
-## 1  1990  1028  7385      0              0      0        0  17.3  3.52  27.5
-## # ... with 39 more variables: ceq <dbl>, che <dbl>, cogs <dbl>, csho <dbl>,
-## #   dlc <dbl>, dltis <dbl>, dltt <dbl>, dp <dbl>, ib <dbl>, invt <dbl>,
-## #   ivao <dbl>, ivst <dbl>, lct <dbl>, lt <dbl>, ni <dbl>, ppegt <dbl>,
-## #   pstk <dbl>, re <dbl>, rect <dbl>, sale <dbl>, sstk <dbl>, txp <dbl>,
-## #   txt <dbl>, xint <dbl>, prcc_f <dbl>, dch_wc <dbl>, ch_rsst <dbl>,
-## #   dch_rec <dbl>, dch_inv <dbl>, soft_assets <dbl>, ch_cs <dbl>, ch_cm <dbl>,
-## #   ch_roa <dbl>, issue <dbl>, bm <dbl>, dpi <dbl>, reoa <dbl>, EBIT <dbl>,
-## #   ch_fcf <dbl>
+##       0     1 total_acc   prec   sens    F1     F2    F.5
+## 0 20526 14166       NaN    NaN    NaN   NaN    NaN    NaN
+## 1    91   161     0.592 0.0112 0.6389 0.022 0.0523 0.0139
 \end{verbatim}
-
-Damit ein NN Inputdaten verwerten kann, müssen diese zwischen 0 und 1 normiert sein.
 
 \begin{Shaded}
 \begin{Highlighting}[]
-\NormalTok{normalize }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(x, }\AttributeTok{na.rm =} \ConstantTok{TRUE}\NormalTok{) \{}
-    \FunctionTok{return}\NormalTok{((x}\SpecialCharTok{{-}} \FunctionTok{min}\NormalTok{(x)) }\SpecialCharTok{/}\NormalTok{(}\FunctionTok{max}\NormalTok{(x)}\SpecialCharTok{{-}}\FunctionTok{min}\NormalTok{(x)))}
-\NormalTok{\}}
-\CommentTok{\# as.data.frame(apply(df$name, normalize))}
-\ControlFlowTok{for}\NormalTok{ (col }\ControlFlowTok{in} \FunctionTok{colnames}\NormalTok{(data))}
-\NormalTok{\{}
-\NormalTok{  data[col] }\OtherTok{\textless{}{-}} \FunctionTok{normalize}\NormalTok{(data[col])}
-\NormalTok{\}}
-
-
-\FunctionTok{print}\NormalTok{(data[}\DecValTok{5}\NormalTok{,])}
+\FunctionTok{summary}\NormalTok{(logit\_ratio\_data)}
 \end{Highlighting}
 \end{Shaded}
 
 \begin{verbatim}
-## # A tibble: 1 x 49
-##   fyear    gvkey  sich insbnk understatement option misstate      act       ap
-##   <dbl>    <dbl> <dbl>  <dbl>          <dbl>  <dbl>    <dbl>    <dbl>    <dbl>
-## 1     0 0.000156 0.736      0              0      0        0 0.000262 0.000180
-## # ... with 40 more variables: at <dbl>, ceq <dbl>, che <dbl>, cogs <dbl>,
-## #   csho <dbl>, dlc <dbl>, dltis <dbl>, dltt <dbl>, dp <dbl>, ib <dbl>,
-## #   invt <dbl>, ivao <dbl>, ivst <dbl>, lct <dbl>, lt <dbl>, ni <dbl>,
-## #   ppegt <dbl>, pstk <dbl>, re <dbl>, rect <dbl>, sale <dbl>, sstk <dbl>,
-## #   txp <dbl>, txt <dbl>, xint <dbl>, prcc_f <dbl>, dch_wc <dbl>,
-## #   ch_rsst <dbl>, dch_rec <dbl>, dch_inv <dbl>, soft_assets <dbl>,
-## #   ch_cs <dbl>, ch_cm <dbl>, ch_roa <dbl>, issue <dbl>, bm <dbl>, dpi <dbl>,
-## #   reoa <dbl>, EBIT <dbl>, ch_fcf <dbl>
+## 
+## Call:
+## glm(formula = misstate ~ ., family = "binomial", data = train)
+## 
+## Deviance Residuals: 
+##    Min      1Q  Median      3Q     Max  
+## -3.156  -1.083   0.527   1.013   6.492  
+## 
+## Coefficients:
+##              Estimate Std. Error z value Pr(>|z|)    
+## (Intercept) -35.74613    0.56539 -63.224  < 2e-16 ***
+## dch_wc       -2.84428    0.12496 -22.762  < 2e-16 ***
+## ch_rsst       7.46171    0.14249  52.366  < 2e-16 ***
+## dch_rec       1.77243    0.06538  27.110  < 2e-16 ***
+## dch_inv       1.16130    0.06228  18.645  < 2e-16 ***
+## soft_assets   1.99318    0.02350  84.816  < 2e-16 ***
+## dpi          -0.25691    0.05951  -4.317 1.58e-05 ***
+## ch_cs         1.00253    0.09622  10.419  < 2e-16 ***
+## ch_cm        -1.03301    0.09577 -10.787  < 2e-16 ***
+## ch_roa       -4.42682    0.13154 -33.653  < 2e-16 ***
+## ch_fcf        9.45417    0.18045  52.392  < 2e-16 ***
+## reoa         33.46111    0.67111  49.860  < 2e-16 ***
+## EBIT         -4.38108    0.22272 -19.670  < 2e-16 ***
+## issue         0.93498    0.02250  41.562  < 2e-16 ***
+## bm           -1.20690    0.07980 -15.124  < 2e-16 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 225660  on 162783  degrees of freedom
+## Residual deviance: 200018  on 162769  degrees of freedom
+## AIC: 200048
+## 
+## Number of Fisher Scoring iterations: 7
 \end{verbatim}
-
-Jetzt wird ein NN trainiert und eine erste Prognose abgegeben. Seed = 42
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{library}\NormalTok{(nnet)}
-\FunctionTok{set.seed}\NormalTok{(}\DecValTok{42}\NormalTok{)}
-\NormalTok{inTrain }\OtherTok{\textless{}{-}} \FunctionTok{runif}\NormalTok{(}\FunctionTok{nrow}\NormalTok{(data)) }\SpecialCharTok{\textless{}} \FloatTok{0.2}
-
-\NormalTok{model }\OtherTok{\textless{}{-}} \FunctionTok{nnet}\NormalTok{(misstate }\SpecialCharTok{\textasciitilde{}}\NormalTok{ ., }\AttributeTok{data=}\NormalTok{data[inTrain,],}
-             \AttributeTok{size=}\DecValTok{15}\NormalTok{, }\AttributeTok{maxit=}\DecValTok{100}\NormalTok{, }\AttributeTok{rang=}\FloatTok{0.1}\NormalTok{, }\AttributeTok{decay=}\FloatTok{5e{-}4}\NormalTok{)}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-## # weights:  751
-## initial  value 1761.201764 
-## iter  10 value 33.571159
-## iter  20 value 24.129969
-## iter  30 value 24.030039
-## iter  40 value 24.029168
-## iter  50 value 24.028222
-## iter  60 value 24.027147
-## iter  70 value 24.025834
-## iter  80 value 24.024014
-## iter  90 value 24.020810
-## iter 100 value 24.011132
-## final  value 24.011132 
-## stopped after 100 iterations
-\end{verbatim}
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{pred }\OtherTok{\textless{}{-}} \FunctionTok{predict}\NormalTok{(model, data[}\SpecialCharTok{{-}}\NormalTok{inTrain,], }\AttributeTok{type=}\StringTok{"raw"}\NormalTok{) }
-\end{Highlighting}
-\end{Shaded}
-
-Nun werden die Ergebnisse für einen Score verwendet.
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{cm }\OtherTok{\textless{}{-}} \FunctionTok{table}\NormalTok{(}\AttributeTok{pred=}\NormalTok{pred,}
-\AttributeTok{true=}\NormalTok{data}\SpecialCharTok{$}\NormalTok{misstate[}\SpecialCharTok{{-}}\NormalTok{inTrain])}
-\NormalTok{accuracy }\OtherTok{=} \FunctionTok{sum}\NormalTok{(}\FunctionTok{diag}\NormalTok{(cm))}\SpecialCharTok{/}\FunctionTok{sum}\NormalTok{(}\FunctionTok{sum}\NormalTok{(cm))}
-\FunctionTok{print}\NormalTok{(accuracy)}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{verbatim}
-## [1] 3.598287e-05
-\end{verbatim}
-
-Haha :D Verdammt, da lief irgendwas falsch. Ich denke, dass type=``raw'' bei der prediction quatsch ist und dass da stattdessen ``class'' rein müsste. Allerdings. funktioniert das dann aus Gründen nicht. morgen oder die Tage mal weiterprobieren.
-
-\begin{savequote}
-There is grandeur in this view of life, with its several powers, having
-been originally breathed into a few forms or into one; and that, whilst
-this planet has gone cycling on according to the fixed law of gravity,
-from so simple a beginning endless forms most beautiful and most
-wonderful have been, and are being, evolved.
-\qauthor{--- Charles Darwin \autocite{Darwin1859}}\end{savequote}
-
-
-
-\hypertarget{customisations-and-extensions}{%
-\chapter{Customisations and extensions}\label{customisations-and-extensions}}
-
-\minitoc 
-
-\noindent This chapter describes a number of additional tips and tricks as well as possible customizations to the \texttt{oxforddown} thesis.
-
-\hypertarget{front-matter}{%
-\section{Front matter}\label{front-matter}}
-
-\hypertarget{shorten-captions-shown-in-the-list-of-figures-pdf}{%
-\subsection{Shorten captions shown in the list of figures (PDF)}\label{shorten-captions-shown-in-the-list-of-figures-pdf}}
-
-You might want your list of figures (which follows the table of contents) to have shorter (or just different) figure descriptions than the actual figure captions.
-
-Do this using the chunk option \texttt{fig.scap} (`short caption'), for example \texttt{\{r\ captain-image,\ fig.cap="A\ very\ long\ and\ descriptive\ (and\ potentially\ boring)\ caption\ that\ doesn\textquotesingle{}t\ fit\ in\ the\ list\ of\ figures,\ but\ helps\ the\ reader\ understand\ what\ the\ figure\ communicates.",\ fig.scap="A\ concise\ description\ for\ the\ list\ of\ figures"}
-
-\hypertarget{shorten-captions-shown-in-the-list-of-tables-pdf}{%
-\subsection{Shorten captions shown in the list of tables (PDF)}\label{shorten-captions-shown-in-the-list-of-tables-pdf}}
-
-You might want your list of tables (which follows the list of figures in your thesis front matter) to have shorter (or just different) table descriptions than the actual table captions.
-
-If you are using \texttt{knitr::kable} to generate a table, you can do this with the argument \texttt{caption.short}, e.g.:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{knitr}\SpecialCharTok{::}\FunctionTok{kable}\NormalTok{(mtcars,}
-              \AttributeTok{caption =} \StringTok{"A very long and descriptive (and potentially}
-\StringTok{              boring) caption that doesn\textquotesingle{}t fit in the list of figures,}
-\StringTok{              but helps the reader understand what the figure }
-\StringTok{              communicates."}\NormalTok{,}
-              \AttributeTok{caption.short =} \StringTok{"A concise description for the list of tables"}\NormalTok{)}
-\end{Highlighting}
-\end{Shaded}
-
-\hypertarget{shorten-running-header-pdf}{%
-\section{Shorten running header (PDF)}\label{shorten-running-header-pdf}}
-
-You might want a chapter's running header (i.e.~the header showing the title of the current chapter at the top of page) to be shorter (or just different) to the actual chapter title.
-
-Do this by adding the latex command \texttt{\textbackslash{}chaptermark\{My\ shorter\ version\}} after your chapter title.
-
-For example, chapter \ref{cites-and-refs}`s running header is simply 'Cites and cross-refs', because it begins like this:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{\# Citations, cross{-}references, and collaboration \{\#cites{-}and{-}refs\} }
-\NormalTok{\textbackslash{}chaptermark\{Cites and cross{-}refs\}}
-\end{Highlighting}
-\end{Shaded}
-
-\hypertarget{unnumbered-chapters}{%
-\section{Unnumbered chapters}\label{unnumbered-chapters}}
-
-To make chapters unnumbered (normally only relevant to the Introduction and/or the Conclusion), follow the chapter header with \texttt{\{-\}}, e.g.~\texttt{\#\ Introduction\ \{-\}}.
-
-When you do this, you must also follow the heading with these two latex commands:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{\textbackslash{}adjustmtc}
-\FunctionTok{\textbackslash{}markboth}\NormalTok{\{The Name of Your Unnumbered Chapter\}\{\}}
-\end{Highlighting}
-\end{Shaded}
-
-Otherwise the chapter's mini table of contents and the running header will show the previous chapter.
-
-\hypertarget{beginning-chapters-with-quotes-pdf}{%
-\section{Beginning chapters with quotes (PDF)}\label{beginning-chapters-with-quotes-pdf}}
-
-The OxThesis LaTeX template lets you inject some wittiness into your thesis by including a block of type \texttt{savequote} at the beginning of chapters.
-To do this, use the syntax \texttt{\textasciigrave{}\textasciigrave{}\textasciigrave{}\{block\ type=\textquotesingle{}savequote\textquotesingle{}\}}.\footnote{For more on custom block types, see the relevant section in \href{https://bookdown.org/yihui/bookdown/custom-blocks.html}{\emph{Authoring Books with R Markdown}}.}
-
-Add the reference for the quote with the chunk option \texttt{quote\_author="my\ author\ name"}.
-You will also want to add the chunk option \texttt{include=knitr::is\_latex\_output()} so that quotes are only included in PDF output.
-
-It's not possible to use markdown syntax inside chunk options, so if you want to e.g.~italicise a book name in the reference use a \href{https://bookdown.org/yihui/bookdown/markdown-extensions-by-bookdown.html\#text-references}{`text reference'}: Create a named piece of text with `(ref:label-name) My text', then point to this in the chunk option with \texttt{quote\_author=\textquotesingle{}(ref:label-name)\textquotesingle{}}.
-
-\hypertarget{highlighting-corrections-html-pdf}{%
-\section{Highlighting corrections (HTML \& PDF)}\label{highlighting-corrections-html-pdf}}
-
-For when it comes time to do corrections, you may want to highlight changes made when you submit a post-viva, corrected copy to your examiners so they can quickly verify you've completed the task.
-You can do so like this:
-
-\hypertarget{short-inline-corrections}{%
-\subsection{Short, inline corrections}\label{short-inline-corrections}}
-
-Highlight \textbf{short, inline corrections} by doing \texttt{{[}like\ this{]}\{.correction\}} --- the text between the square brackets will then \hl{be highlighted in blue} in the output.
-
-Note that pandoc might get confused by citations and cross-references inside inline corrections.
-In particular, it might get confused by \texttt{"{[}what\ @Shea2014\ said{]}\{.correction\}"} which becomes \autocite[what][ said]{Shea2014}\{.correction\}
-In such cases, you can use LaTeX syntax directly.
-The correction highlighting uses the \href{https://ctan.org/pkg/soul}{soul} package, so you can do like this:
-
-\begin{itemize}
-\tightlist
-\item
-  If using biblatex for references, use \texttt{"\textbackslash{}hl\{what\ \textbackslash{}textcite\{Shea2014\}\ said\}}
-\item
-  If using natbib for references, use \texttt{"\textbackslash{}hl\{what\ \textbackslash{}cite\{Shea2014\}\ said\}}
-\end{itemize}
-
-Using raw LaTeX has the drawback of corrections then not showing up in HTML output at all, but you might only care about correction highlighting in the PDF for your examiners anyway!
-
-\hypertarget{blocks-of-added-or-changed-material}{%
-\subsection{Blocks of added or changed material}\label{blocks-of-added-or-changed-material}}
-
-Highlight entire \textbf{blocks of added or changed material} by putting them in a block of type \texttt{correction}, using the syntax \texttt{\textasciigrave{}\textasciigrave{}\textasciigrave{}\{block\ type=\textquotesingle{}correction\textquotesingle{}\}}.\footnote{In the \textbf{.tex} file for PDF output, this will put the content between \texttt{\textbackslash{}begin\{correction\}} and \texttt{\textbackslash{}end\{correction\}}; in gitbook output it will be put between \texttt{\textless{}div\ class="correction"\textgreater{}} and \texttt{\textless{}/div\textgreater{}}.}
-Like so:
-
-\begin{correction}
-For larger chunks, like this paragraph or indeed entire figures, you can
-use the \texttt{correction} block type. This environment
-\textbf{highlights paragraph-sized and larger blocks} with the same blue
-colour.
-\end{correction}
-
-\emph{Note that correction blocks cannot be included in word output.}
-
-\hypertarget{stopping-corrections-from-being-highlighted}{%
-\subsection{Stopping corrections from being highlighted}\label{stopping-corrections-from-being-highlighted}}
-
-To turn off correction highlighting, go to the YAML header of \textbf{index.Rmd}, then:
-
-\begin{itemize}
-\tightlist
-\item
-  PDF output: set \texttt{corrections:\ false}\\
-\item
-  HTML output: remove or comment out \texttt{-\ templates/corrections.css}
-\end{itemize}
-
-\hypertarget{apply-custom-font-color-and-highlighting-to-text-html-pdf}{%
-\section{Apply custom font color and highlighting to text (HTML \& PDF)}\label{apply-custom-font-color-and-highlighting-to-text-html-pdf}}
-
-The lua filter that adds the functionality to highlight corrections adds two more tricks:
-you can apply your own choice of colour to highlight text, or change the font color.
-The syntax is as follows:
-
-\begin{quote}
-Here's \texttt{{[}some\ text\ in\ pink\ highlighting{]}\{highlight="pink"\}}\\
-Becomes: Here's \sethlcolor{pink}\hl{some text in pink highlighting}\sethlcolor{correctioncolor}.
-\end{quote}
-
-\begin{quote}
-\texttt{{[}Here\textquotesingle{}s\ some\ text\ with\ blue\ font{]}\{color="blue"\}}~\\
-Becomes: \textcolor{blue}{Here's some text with blue font}
-\end{quote}
-
-\begin{quote}
-Finally --- never, ever actually do this -- \texttt{{[}here\textquotesingle{}s\ some\ text\ with\ black\ highlighting\ and\ yellow\ font{]}\{highlight="black"\ color="yellow"\}}\\
-Becomes: \textcolor{yellow}{\sethlcolor{black}\hl{here's some text with black highlighting and yellow font}\sethlcolor{correctioncolor}}
-\end{quote}
-
-The file \textbf{scripts\_and\_filters/colour\_and\_highlight.lua} implements this, if you want to fiddle around with it.
-It works with both PDF and HTML output.
-
-\hypertarget{embed-pdf}{%
-\section{Including another paper in your thesis - embed a PDF document}\label{embed-pdf}}
-
-You may want to embed existing PDF documents into the thesis, for example if your department allows a `portfolio' style thesis and you need to include an existing typeset publication as a chapter.
-
-In gitbook output, you can simply use \texttt{knitr::include\_graphics} and it should include a scrollable (and downloadable) PDF.
-You will probably want to set the chunk options \texttt{out.width=\textquotesingle{}100\%\textquotesingle{}} and \texttt{out.height=\textquotesingle{}1000px\textquotesingle{}}:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{knitr}\SpecialCharTok{::}\FunctionTok{include\_graphics}\NormalTok{(}\StringTok{"figures/sample{-}content/pdf\_embed\_example/Lyngs2020\_FB.pdf"}\NormalTok{)}
-\end{Highlighting}
-\end{Shaded}
-
-In LaTeX output, however, this approach can cause odd behaviour.
-Therefore, when you build your thesis to PDF, split the PDF into an alphanumerically sorted sequence of \textbf{single-page} PDF files (you can do this automatically with the package \texttt{pdftools}). You can then use the appropriate LaTeX command to insert them, as shown below (for brevity, in the \texttt{oxforddown} PDF sample content we're only including two pages).
-\emph{Note that the chunk option \texttt{results=\textquotesingle{}asis\textquotesingle{}} must be set.}
-You may also want to remove margins from the PDF files, which you can do with Adobe Acrobat (paid version) and likely other software.
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\CommentTok{\# install.packages(pdftools)}
-\CommentTok{\# split PDF into pages stored in}
-\NormalTok{    figures}\SpecialCharTok{/}\NormalTok{sample}\SpecialCharTok{{-}}\NormalTok{content}\SpecialCharTok{/}\NormalTok{pdf\_embed\_example}\SpecialCharTok{/}\NormalTok{split}\SpecialCharTok{/}
-\CommentTok{\#}
-\NormalTok{    pdftools}\SpecialCharTok{::}\FunctionTok{pdf\_split}\NormalTok{(}\StringTok{"figures/sample{-}content/pdf\_embed\_example/Lyngs2020\_FB.pdf"}\NormalTok{,}
-\CommentTok{\# output = "figures/sample{-}content/pdf\_embed\_example/split/")}
-
-\CommentTok{\# grab the pages}
-\NormalTok{pages }\OtherTok{\textless{}{-}} \FunctionTok{list.files}\NormalTok{(}\StringTok{"figures/sample{-}content/pdf\_embed\_example/split"}\NormalTok{,}
-    \AttributeTok{full.names =} \ConstantTok{TRUE}\NormalTok{)}
-
-\CommentTok{\# set how wide you want the inserted PDFs to be:}
-\CommentTok{\# 1.0 is 100 per cent of the oxforddown PDF page width;}
-\CommentTok{\# you may want to make it a bit bigger}
-\NormalTok{pdf\_width }\OtherTok{\textless{}{-}} \FloatTok{1.2}
-
-\CommentTok{\# for each PDF page, insert it nicely and}
-\CommentTok{\# end with a page break}
-\FunctionTok{cat}\NormalTok{(stringr}\SpecialCharTok{::}\FunctionTok{str\_c}\NormalTok{(}\StringTok{"}\SpecialCharTok{\textbackslash{}\textbackslash{}}\StringTok{newpage }\SpecialCharTok{\textbackslash{}\textbackslash{}}\StringTok{begin\{center\}}
-\StringTok{    }\SpecialCharTok{\textbackslash{}\textbackslash{}}\StringTok{makebox[}\SpecialCharTok{\textbackslash{}\textbackslash{}}\StringTok{linewidth][c]\{}\SpecialCharTok{\textbackslash{}\textbackslash{}}\StringTok{includegraphics[width="}\NormalTok{, pdf\_width,}
-    \StringTok{"}\SpecialCharTok{\textbackslash{}\textbackslash{}}\StringTok{linewidth]\{"}\NormalTok{, pages, }\StringTok{"\}\} }\SpecialCharTok{\textbackslash{}\textbackslash{}}\StringTok{end\{center\}"}\NormalTok{))}
-\end{Highlighting}
-\end{Shaded}
-
-\newpage \begin{center} \makebox[\linewidth][c]{\includegraphics[width=1.2\linewidth]{figures/sample-content/pdf_embed_example/split/_000000000000001.pdf}} \end{center} \newpage \begin{center} \makebox[\linewidth][c]{\includegraphics[width=1.2\linewidth]{figures/sample-content/pdf_embed_example/split/_000000000000011.pdf}} \end{center}
-
-\hypertarget{embed-rmd}{%
-\section{Including another paper in your thesis - R Markdown child document}\label{embed-rmd}}
-
-Sometimes you want to include another paper you are currently writing as a chapter in your thesis.
-Above \ref{embed-pdf}, we described the simplest way to do this: include the other paper as a pdf.
-However, in some cases you instead want to include the R Markdown source from this paper, and have it compiled within your thesis.
-This is a little bit more tricky, because you need to keep careful track of your file paths, but it is possible by \href{https://bookdown.org/yihui/rmarkdown-cookbook/child-document.html}{including the paper as a child document}.
-There are four main steps:
-
-\begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
-\tightlist
-\item
-  Include the paper as a child document
-\item
-  Make file paths compatible with knitting the article on its own, as well as when it's include in your thesis
-\item
-  Make header levels correct
-\item
-  Make figure widths correct
-\end{enumerate}
-
-\hypertarget{an-example-paper-in-another-folder}{%
-\subsection{An example paper in another folder}\label{an-example-paper-in-another-folder}}
-
-Take this simple example (files for this are in \href{https://github.com/ulyngs/oxforddown-external-article}{this GitHub repository}):
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\NormalTok{|{-}{-}paper\_to\_include}
-\NormalTok{|  |{-}{-}my\_paper.Rmd}
-\NormalTok{|  |{-}{-}data}
-\NormalTok{|  |  |{-}{-}cat\_salt.csv}
-\NormalTok{|  |{-}{-}figures}
-\NormalTok{|  |  |{-}{-}cat.jpg}
-\NormalTok{|}
-\NormalTok{|{-}{-}thesis}
-\end{Highlighting}
-\end{Shaded}
-
-As the chart suggests, you have another folder, \textbf{paper\_to\_include/} living in the same containing folder as your thesis folder.
-In the \textbf{paper\_to\_include} folder, the file \textbf{my\_paper.Rmd} is where you write the paper.
-In \textbf{my\_paper.Rmd}, you read in a CSV file found in the subfolder \textbf{data/cats.csv}, and also an image from the subfolder \textbf{figures/cat.jpg}.
-
-\hypertarget{step-1-include-paper-as-a-child-document}{%
-\subsection{Step 1: Include paper as a child document}\label{step-1-include-paper-as-a-child-document}}
-
-In your thesis folder, create an Rmd file for the chapter where you want to include another paper.
-Add one or more code chunks that include R Markdown files from that paper as child documents:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{\# Including an external chapter }
-
-\InformationTok{\textasciigrave{}\textasciigrave{}\textasciigrave{}\{r child = "../paper\_to\_include/my\_paper.Rmd"\}}
-\InformationTok{\textasciigrave{}\textasciigrave{}\textasciigrave{}}
-\end{Highlighting}
-\end{Shaded}
-
-\hypertarget{step-2-make-file-paths-compatible}{%
-\subsection{Step 2: Make file paths compatible}\label{step-2-make-file-paths-compatible}}
-
-Use \href{https://rmarkdown.rstudio.com/lesson-6.html}{parameters} to adjust the file path of images based on values you set in the YAML header of an R Markdown file.
-In \textbf{my\_paper.Rmd}, create a parameter called \texttt{other\_path} and set it to an empty string:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\PreprocessorTok{{-}{-}{-}}
-\FunctionTok{title}\KeywordTok{:}\AttributeTok{ }\StringTok{"A fabulous article in a different folder"}
-\FunctionTok{params}\KeywordTok{:}
-\AttributeTok{  }\FunctionTok{other\_path}\KeywordTok{:}\AttributeTok{ }\StringTok{""}
-\PreprocessorTok{{-}{-}{-}}
-\end{Highlighting}
-\end{Shaded}
-
-In \textbf{my\_paper.Rmd}, put this at the start of the filepath when you read in data or include images:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{library}\NormalTok{(tidyverse)}
-\FunctionTok{library}\NormalTok{(knitr)}
-
-\NormalTok{cat\_data }\OtherTok{\textless{}{-}} \FunctionTok{read\_csv}\NormalTok{(}\FunctionTok{str\_c}\NormalTok{(params}\SpecialCharTok{$}\NormalTok{other\_path, }\StringTok{"data/cats.csv"}\NormalTok{))}
-\FunctionTok{include\_graphics}\NormalTok{(}\FunctionTok{str\_c}\NormalTok{(params}\SpecialCharTok{$}\NormalTok{other\_path, }\StringTok{"figures/cat.jpg"}\NormalTok{))}
-\end{Highlighting}
-\end{Shaded}
-
-Finally, in your thesis folder's \textbf{index.Rmd} file, also create the parameter \texttt{other\_path}.
-But here, set it to where the \textbf{paper\_to\_include/} folder is relative to your thesis folder:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{params}\KeywordTok{:}
-\AttributeTok{  }\FunctionTok{other\_path}\KeywordTok{:}\AttributeTok{ }\StringTok{"../paper\_to\_include/"}
-\end{Highlighting}
-\end{Shaded}
-
-\hypertarget{note-on-html-output}{%
-\subsubsection{Note on HTML output}\label{note-on-html-output}}
-
-Note that if you want to host an HTML version on your thesis online, you will need to include graphics in the content that you host online - the internet obviously won't be able to see filepaths that are just referring to stuff in another folder on your computer!
-
-\hypertarget{step-3-make-sure-header-levels-are-correct}{%
-\subsection{Step 3: Make sure header levels are correct}\label{step-3-make-sure-header-levels-are-correct}}
-
-Unless the paper you want to include is also written as a book, your header levels are probably going to be off.
-That is, the level 1 headers (\# Some header) you use for main sections in the other paper turns into chaper titles when included in your thesis.
-
-To avoid this, first \emph{increment all heading levels by one in \textbf{paper\_to\_include/my\_paper.Rmd}} (\# Some header -\textgreater{} \#\# Some header).
-Then in \textbf{paper\_to\_include/} create a \href{https://bookdown.org/yihui/rmarkdown-cookbook/lua-filters.html\#lua-filters}{lua filter} that decrements header levels by one: Create a text file, save it as \textbf{reduce\_header\_level.lua}, and give it the content below.
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\KeywordTok{function}\NormalTok{ Header}\OperatorTok{(}\NormalTok{el}\OperatorTok{)}
-  \ControlFlowTok{if} \OperatorTok{(}\NormalTok{el}\OperatorTok{.}\NormalTok{level }\OperatorTok{\textless{}=} \DecValTok{1}\OperatorTok{)} \ControlFlowTok{then}
-    \FunctionTok{error}\OperatorTok{(}\StringTok{"I don\textquotesingle{}t know how to decrease the level of h1"}\OperatorTok{)}
-  \ControlFlowTok{end}
-\NormalTok{  el}\OperatorTok{.}\NormalTok{level }\OperatorTok{=}\NormalTok{ el}\OperatorTok{.}\NormalTok{level }\OperatorTok{{-}} \DecValTok{1}
-  \ControlFlowTok{return}\NormalTok{ el}
-\KeywordTok{end}
-\end{Highlighting}
-\end{Shaded}
-
-In the YAML header of \textbf{paper\_to\_include/my\_paper.Rmd}, use this filter:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\PreprocessorTok{{-}{-}{-}}
-\FunctionTok{title}\KeywordTok{:}\AttributeTok{ }\StringTok{"A fabulous article in a different folder"}
-\FunctionTok{params}\KeywordTok{:}
-\AttributeTok{  }\FunctionTok{other\_path}\KeywordTok{:}\AttributeTok{ }\StringTok{""}
-\FunctionTok{output}\KeywordTok{:}
-\AttributeTok{  }\FunctionTok{pdf\_document}\KeywordTok{:}\AttributeTok{ }
-\AttributeTok{    }\FunctionTok{pandoc\_args}\KeywordTok{:}\AttributeTok{ }\KeywordTok{[}\StringTok{"{-}{-}lua{-}filter=reduce\_header\_level.lua"}\KeywordTok{]}
-\PreprocessorTok{{-}{-}{-}}
-\end{Highlighting}
-\end{Shaded}
-
-Now, your header levels will be correct both when you knit the paper on its own and when its included in your thesis.
-
-\hypertarget{step-4.-make-sure-figure-widths-are-correct}{%
-\subsection{Step 4. Make sure figure widths are correct}\label{step-4.-make-sure-figure-widths-are-correct}}
-
-It might be that your figure widths when knitting your paper on its own, and when including it in your thesis, need to be different.
-You can again use parameters to set figure widths.
-
-Imagine you want figure width to be 80\% of the page width when knitting your paper on its own, but 100\% in your thesis.
-In \textbf{paper\_to\_include/my\_paper.Rmd}, first add a parameter we could call \texttt{out\_width} and set it to the string ``80\%'':
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\PreprocessorTok{{-}{-}{-}}
-\FunctionTok{title}\KeywordTok{:}\AttributeTok{ }\StringTok{"A fabulous article in a different folder"}
-\FunctionTok{params}\KeywordTok{:}
-\AttributeTok{  }\FunctionTok{other\_path}\KeywordTok{:}\AttributeTok{ }\StringTok{""}
-\AttributeTok{  }\FunctionTok{out\_width}\KeywordTok{:}\AttributeTok{ }\StringTok{"80\%"}
-\FunctionTok{output}\KeywordTok{:}
-\AttributeTok{  }\FunctionTok{pdf\_document}\KeywordTok{:}\AttributeTok{ }
-\AttributeTok{    }\FunctionTok{pandoc\_args}\KeywordTok{:}\AttributeTok{ }\KeywordTok{[}\StringTok{"{-}{-}lua{-}filter=reduce\_header\_level.lua"}\KeywordTok{]}
-\PreprocessorTok{{-}{-}{-}}
-\end{Highlighting}
-\end{Shaded}
-
-Then, make sure use that parameter to set the output width when you include figures in \textbf{paper\_to\_include/my\_paper.Rmd}:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\InformationTok{\textasciigrave{}\textasciigrave{}\textasciigrave{}\{r, out.width=params$out\_width, fig.cap="A very funny cat"\}}
-\InformationTok{include\_graphics(str\_c(params$other\_path, "figures/cat.jpg"))}
-\InformationTok{\textasciigrave{}\textasciigrave{}\textasciigrave{}}
-\end{Highlighting}
-\end{Shaded}
-
-Finally, create the parameter \texttt{out\_width} in your thesis' \textbf{index.Rmd} file:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{params}\KeywordTok{:}
-\AttributeTok{  }\FunctionTok{other\_path}\KeywordTok{:}\AttributeTok{ }\StringTok{"../paper\_to\_include/"}
-\AttributeTok{  }\FunctionTok{out\_width}\KeywordTok{:}\AttributeTok{ }\StringTok{"80\%"}
-\end{Highlighting}
-\end{Shaded}
-
-Now, the output width of your figure will be 80\% when knitting your paper on its own, and 100\% when knitting it as child document of your thesis.
-
-\hypertarget{customizing-referencing}{%
-\section{Customizing referencing}\label{customizing-referencing}}
-
-\hypertarget{using-a-.csl-file-with-pandoc-instead-of-biblatex}{%
-\subsection{Using a .csl file with pandoc instead of biblatex}\label{using-a-.csl-file-with-pandoc-instead-of-biblatex}}
-
-The \texttt{oxforddown} package uses biblatex in LaTeX for referencing.
-It is also possible to use pandoc for referencing by providing a .csl file in the YAML header of \textbf{index.Rmd} (likely requiring commenting out the biblatex code in \textbf{templates/template.tex}).
-This may be helpful for those who have a .csl file describing the referencing format for a particular journal.
-However, note that this approach does not support chapter bibliographies (see Section \ref{biblatex-custom}).
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{csl}\KeywordTok{:}\AttributeTok{ ecology.csl}
-\end{Highlighting}
-\end{Shaded}
-
-\hypertarget{biblatex-custom}{%
-\subsection{Customizing biblatex and adding chapter bibliographies}\label{biblatex-custom}}
-
-This section provides one example of customizing biblatex. Much of this code was combined from searches on Stack Exchange and other sources (e.g.~\href{https://tex.stackexchange.com/questions/10682/suppress-in-biblatex}{here}).
-
-In \textbf{templates/template.tex}, one can replace the existing biblatex calls with the following to achieve referencing that looks like this:
-
-(Charmantier and Gienapp 2014)
-
-Charmantier, A. and P. Gienapp (2014). Climate change and timing of avian breeding and migration: evolutionary versus plastic changes. Evolutionary Applications 7(1):15--28. doi: 10.1111/eva.12126.
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\BuiltInTok{\textbackslash{}usepackage}\NormalTok{[backend=biber,}
-\NormalTok{    bibencoding=utf8,}
-\NormalTok{    refsection=chapter, }\CommentTok{\% referencing by chapter}
-\NormalTok{    style=authoryear, }
-\NormalTok{    firstinits=true,}
-\NormalTok{    isbn=false,}
-\NormalTok{    doi=true,}
-\NormalTok{    url=false,}
-\NormalTok{    eprint=false,}
-\NormalTok{    related=false,}
-\NormalTok{    dashed=false,}
-\NormalTok{    clearlang=true,}
-\NormalTok{    maxcitenames=2,}
-\NormalTok{    mincitenames=1,}
-\NormalTok{    maxbibnames=10,}
-\NormalTok{    abbreviate=false,}
-\NormalTok{    minbibnames=3,}
-\NormalTok{    uniquelist=minyear,}
-\NormalTok{    sortcites=true,}
-\NormalTok{    date=year}
-\NormalTok{]\{}\ExtensionTok{biblatex}\NormalTok{\}}
-\FunctionTok{\textbackslash{}AtEveryBibitem}\NormalTok{\{}\CommentTok{\%}
-  \FunctionTok{\textbackslash{}clearlist}\NormalTok{\{language\}}\CommentTok{\%}
-  \FunctionTok{\textbackslash{}clearfield}\NormalTok{\{note\}}
-\NormalTok{\}}
-
-\FunctionTok{\textbackslash{}DeclareFieldFormat}\NormalTok{\{titlecase\}\{}\FunctionTok{\textbackslash{}MakeTitleCase}\NormalTok{\{\#1\}\}}
-
-\FunctionTok{\textbackslash{}newrobustcmd}\NormalTok{\{}\FunctionTok{\textbackslash{}MakeTitleCase}\NormalTok{\}[1]\{}\CommentTok{\%}
-  \FunctionTok{\textbackslash{}ifthenelse}\NormalTok{\{}\FunctionTok{\textbackslash{}ifcurrentfield}\NormalTok{\{booktitle\}}\FunctionTok{\textbackslash{}OR\textbackslash{}ifcurrentfield}\NormalTok{\{booksubtitle\}}\CommentTok{\%}
-    \FunctionTok{\textbackslash{}OR\textbackslash{}ifcurrentfield}\NormalTok{\{maintitle\}}\FunctionTok{\textbackslash{}OR\textbackslash{}ifcurrentfield}\NormalTok{\{mainsubtitle\}}\CommentTok{\%}
-    \FunctionTok{\textbackslash{}OR\textbackslash{}ifcurrentfield}\NormalTok{\{journaltitle\}}\FunctionTok{\textbackslash{}OR\textbackslash{}ifcurrentfield}\NormalTok{\{journalsubtitle\}}\CommentTok{\%}
-    \FunctionTok{\textbackslash{}OR\textbackslash{}ifcurrentfield}\NormalTok{\{issuetitle\}}\FunctionTok{\textbackslash{}OR\textbackslash{}ifcurrentfield}\NormalTok{\{issuesubtitle\}}\CommentTok{\%}
-    \FunctionTok{\textbackslash{}OR\textbackslash{}ifentrytype}\NormalTok{\{book\}}\FunctionTok{\textbackslash{}OR\textbackslash{}ifentrytype}\NormalTok{\{mvbook\}}\FunctionTok{\textbackslash{}OR\textbackslash{}ifentrytype}\NormalTok{\{bookinbook\}}\CommentTok{\%}
-    \FunctionTok{\textbackslash{}OR\textbackslash{}ifentrytype}\NormalTok{\{booklet\}}\FunctionTok{\textbackslash{}OR\textbackslash{}ifentrytype}\NormalTok{\{suppbook\}}\CommentTok{\%}
-    \FunctionTok{\textbackslash{}OR\textbackslash{}ifentrytype}\NormalTok{\{collection\}}\FunctionTok{\textbackslash{}OR\textbackslash{}ifentrytype}\NormalTok{\{mvcollection\}}\CommentTok{\%}
-    \FunctionTok{\textbackslash{}OR\textbackslash{}ifentrytype}\NormalTok{\{suppcollection\}}\FunctionTok{\textbackslash{}OR\textbackslash{}ifentrytype}\NormalTok{\{manual\}}\CommentTok{\%}
-    \FunctionTok{\textbackslash{}OR\textbackslash{}ifentrytype}\NormalTok{\{periodical\}}\FunctionTok{\textbackslash{}OR\textbackslash{}ifentrytype}\NormalTok{\{suppperiodical\}}\CommentTok{\%}
-    \FunctionTok{\textbackslash{}OR\textbackslash{}ifentrytype}\NormalTok{\{proceedings\}}\FunctionTok{\textbackslash{}OR\textbackslash{}ifentrytype}\NormalTok{\{mvproceedings\}}\CommentTok{\%}
-    \FunctionTok{\textbackslash{}OR\textbackslash{}ifentrytype}\NormalTok{\{reference\}}\FunctionTok{\textbackslash{}OR\textbackslash{}ifentrytype}\NormalTok{\{mvreference\}}\CommentTok{\%}
-    \FunctionTok{\textbackslash{}OR\textbackslash{}ifentrytype}\NormalTok{\{report\}}\FunctionTok{\textbackslash{}OR\textbackslash{}ifentrytype}\NormalTok{\{thesis\}\}}
-\NormalTok{    \{\#1\}}
-\NormalTok{    \{}\FunctionTok{\textbackslash{}MakeSentenceCase}\NormalTok{\{\#1\}\}\}}
-    
-\CommentTok{\% \textbackslash{}renewbibmacro\{in:\}\{\}}
-\CommentTok{\% suppress "in" for articles}
-\CommentTok{\% }
-\FunctionTok{\textbackslash{}renewbibmacro}\NormalTok{\{in:\}\{}\CommentTok{\%}
-  \FunctionTok{\textbackslash{}ifentrytype}\NormalTok{\{article\}\{\}\{}\FunctionTok{\textbackslash{}printtext}\NormalTok{\{}\FunctionTok{\textbackslash{}bibstring}\NormalTok{\{in\}}\FunctionTok{\textbackslash{}intitlepunct}\NormalTok{\}\}\}}
-\CommentTok{\%{-}{-} no "quotes" around titles of chapters/article titles}
-\FunctionTok{\textbackslash{}DeclareFieldFormat}\NormalTok{[article, inbook, incollection, inproceedings, misc, thesis, unpublished]}
-\NormalTok{\{title\}\{\#1\}}
-\CommentTok{\%{-}{-} no punctuation after volume}
-\FunctionTok{\textbackslash{}DeclareFieldFormat}\NormalTok{[article]}
-\NormalTok{\{volume\}\{\{\#1\}\}}
-\CommentTok{\%{-}{-} puts number/issue between brackets}
-\FunctionTok{\textbackslash{}DeclareFieldFormat}\NormalTok{[article, inbook, incollection, inproceedings, misc, thesis, unpublished]}
-\NormalTok{\{number\}\{}\FunctionTok{\textbackslash{}mkbibparens}\NormalTok{\{\#1\}\} }
-\CommentTok{\%{-}{-} and then for articles directly the pages w/o any "pages" or "pp." }
-\FunctionTok{\textbackslash{}DeclareFieldFormat}\NormalTok{[article]}
-\NormalTok{\{pages\}\{\#1\}}
-\CommentTok{\%{-}{-} for some types replace "pages" by "p."}
-\FunctionTok{\textbackslash{}DeclareFieldFormat}\NormalTok{[inproceedings, incollection, inbook]}
-\NormalTok{\{pages\}\{p. \#1\}}
-\CommentTok{\%{-}{-} format 16(4):224{-}{-}225 for articles}
-\FunctionTok{\textbackslash{}renewbibmacro*}\NormalTok{\{volume+number+eid\}\{}
-  \FunctionTok{\textbackslash{}printfield}\NormalTok{\{volume\}}\CommentTok{\%}
-  \FunctionTok{\textbackslash{}printfield}\NormalTok{\{number\}}\CommentTok{\%}
-  \FunctionTok{\textbackslash{}printunit}\NormalTok{\{}\FunctionTok{\textbackslash{}addcolon}\NormalTok{\}}
-\NormalTok{\}}
-\end{Highlighting}
-\end{Shaded}
-
-If you would like chapter bibliographies, in addition insert the following code at the end of each chapter, and comment out the entire REFERENCES section at the end of template.tex.
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{\textbackslash{}printbibliography}\NormalTok{[segment=}\FunctionTok{\textbackslash{}therefsection}\NormalTok{,heading=subbibliography]}
-\end{Highlighting}
-\end{Shaded}
-
-\hypertarget{customizing-the-page-headers-and-footers-pdf}{%
-\section{Customizing the page headers and footers (PDF)}\label{customizing-the-page-headers-and-footers-pdf}}
-
-This can now be done directly in \textbf{index.Rmd}'s YAML header.
-If you are a LaTeX expert and need further customisation that what's currently provided, you can tweak the relevant sections of \textbf{templates/template.tex} - the relevant code is beneath the line that begins \texttt{\textbackslash{}usepackage\{fancyhdr\}}.
-
-\hypertarget{diving-in-to-the-oxthesis-latex-template-pdf}{%
-\section{Diving in to the OxThesis LaTeX template (PDF)}\label{diving-in-to-the-oxthesis-latex-template-pdf}}
-
-For LaTeX minded people, you can read through \textbf{templates/template.tex} to see which additional customisation options are available as well as \textbf{templates/ociamthesis.cls} which supplies the base class.
-For example, \textbf{template.tex} provides an option for master's degree submissions, which changes identifying information to candidate number and includes a word count.
-At the time of writing, you must set this directly in \textbf{template.tex} rather than from the YAML header in \textbf{index.Rmd}.
-
-\hypertarget{customising-to-a-different-university}{%
-\section{Customising to a different university}\label{customising-to-a-different-university}}
-
-\hypertarget{the-minimal-route}{%
-\subsection{The minimal route}\label{the-minimal-route}}
-
-If the front matter in the OxThesis LaTeX template is suitable to your university, customising \texttt{oxforddown} to your needs could be as simple as putting the name of your institution and the path to your university's logo in \textbf{index.Rmd}:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{university}\KeywordTok{:}\AttributeTok{ University of You}
-\FunctionTok{university{-}logo}\KeywordTok{:}\AttributeTok{ figures/your{-}logo{-}here.pdf}
-\end{Highlighting}
-\end{Shaded}
-
-\hypertarget{replacing-the-entire-title-page-with-your-required-content}{%
-\subsection{Replacing the entire title page with your required content}\label{replacing-the-entire-title-page-with-your-required-content}}
-
-If you have a \textbf{.tex} file with some required front matter from your university that you want to replace the OxThesis template's title page altogether, you can provide a filepath to this file in \textbf{index.Rmd}.
-\texttt{oxforddown}'s sample content includes and example of this --- if you use the YAML below, your front matter will look like this:
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{alternative{-}title{-}page}\KeywordTok{:}\AttributeTok{ front{-}and{-}back{-}matter/alt{-}title{-}page{-}example.tex}
-\end{Highlighting}
-\end{Shaded}
-
-\noindent
-\fbox{\includegraphics[width=0.32\linewidth]{figures/sample-content/alt_frontmatter_example/split/_000001.pdf}} \fbox{\includegraphics[width=0.32\linewidth]{figures/sample-content/alt_frontmatter_example/split/_000002.pdf}} \fbox{\includegraphics[width=0.32\linewidth]{figures/sample-content/alt_frontmatter_example/split/_000003.pdf}} \fbox{\includegraphics[width=0.32\linewidth]{figures/sample-content/alt_frontmatter_example/split/_000004.pdf}} \fbox{\includegraphics[width=0.32\linewidth]{figures/sample-content/alt_frontmatter_example/split/_000005.pdf}} \fbox{\includegraphics[width=0.32\linewidth]{figures/sample-content/alt_frontmatter_example/split/_000006.pdf}}
-
-\hypertarget{troubleshooting}{%
-\chapter{Troubleshooting}\label{troubleshooting}}
-
-This chapter describes common errors you may run into, and how to fix them.
-
-\hypertarget{error-failed-to-build-the-bibliography-via-biber}{%
-\section{Error: Failed to build the bibliography via biber}\label{error-failed-to-build-the-bibliography-via-biber}}
-
-This can happen if you've had a failed build, perhaps in relation to RStudio shutting down abruptly.
-
-Try doing this:
-
-\begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
-\tightlist
-\item
-  type \texttt{make\ clean-knits} in the terminal tab (or run \texttt{file.remove(list.files(pattern\ =\ "*.(log\textbar{}mtc\textbar{}maf\textbar{}aux\textbar{}bbl\textbar{}blg\textbar{}xml)"))} in the R console) to clean up files generated by LaTeX during a build
-\item
-  restart your computer
-\end{enumerate}
-
-If this does not solve the problem, try using the \href{https://www.overleaf.com/learn/latex/Bibliography_management_with_natbib}{natbib} LaTeX package instead of \href{https://www.overleaf.com/learn/latex/Articles/Getting_started_with_BibLaTeX}{biblatex} for handling references.
-To do this, go to \textbf{index.Rmd} and
-
-\begin{enumerate}
-\def\labelenumi{\arabic{enumi}.}
-\tightlist
-\item
-  set \texttt{use-biblatex:\ false} and \texttt{use-natbib:\ true}
-\item
-  set \texttt{citation\_package:\ natbib} under
-\end{enumerate}
-
-\begin{Shaded}
-\begin{Highlighting}[]
-\FunctionTok{output}\KeywordTok{:}
-\AttributeTok{  bookdown:}\FunctionTok{:pdf\_book}\KeywordTok{:}
-\AttributeTok{    }\FunctionTok{citation\_package}\KeywordTok{:}\AttributeTok{ natbib}
-\end{Highlighting}
-\end{Shaded}
-
-\begin{savequote}
-Alles Gescheite ist schon gedacht worden.\\
-Man muss nur versuchen, es noch einmal zu denken.
-
-All intelligent thoughts have already been thought;\\
-what is necessary is only to try to think them again.
-\qauthor{--- Johann Wolfgang von Goethe \autocite{von_goethe_wilhelm_1829}}\end{savequote}
-
-
-
-\hypertarget{conclusion}{%
-\chapter*{Conclusion}\label{conclusion}}
-\addcontentsline{toc}{chapter}{Conclusion}
-
-If we don't want Conclusion to have a chapter number next to it, we can add the \texttt{\{-\}} attribute.
-
-\hypertarget{more-info}{%
-\section*{More info}\label{more-info}}
-\addcontentsline{toc}{section}{More info}
-
-And here's some other random info:
-the first paragraph after a chapter title or section head \emph{shouldn't be} indented, because indents are to tell the reader that you're starting a new paragraph.
-Since that's obvious after a chapter or section title, proper typesetting doesn't add an indent there.
-
-This paragraph, by contrast, \emph{will} be indented as it should because it is not the first one after the `More info' heading.
-All hail LaTeX. (If you're reading the HTML version, you won't see any indentation - have a look at the PDF version to understand what in the earth this section is babbling on about).
 
 \startappendices
 

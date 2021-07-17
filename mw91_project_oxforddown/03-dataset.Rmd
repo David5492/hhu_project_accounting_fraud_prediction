@@ -31,6 +31,7 @@ Zudem sind nur Betrugsfälle bis zum Jahr 2008 in diesem Datensatz erhalten, da 
 # install.packages('readr')
 # install.packages('rio', type='binary')
 # install.packages('bookdown', type='binary')
+# install.packages('kdensity')
 
 library(neuralnet)
 library(caret)
@@ -39,6 +40,7 @@ library(Hmisc)
 library(smotefamily)
 library(readr)
 library(rio)
+library(kdensity)
 ```
 Cleaning-Prozess-Reichenfolge:
 
@@ -54,48 +56,137 @@ Cleaning-Prozess-Reichenfolge:
 Dann ist die Datenvorbereitung fertig und man kann Modelle damit rechnen. Bis zu dem Punkt geht die nächste Zelle:
 
 ```{r}
-## 1.
+## 1. Daten als "data" Laden
 data <- import("data/uscecchini28.csv")
 
-
-## 2.
+## 2. Spalten "p_aaer" und "new_p_aaer" löschen
 data <- data[,-match(c("p_aaer", "new_p_aaer"), names(data))]
 
-
-## 3.
+## 3. Alle Zeilen mit NaN-Werten löschen
 data <- data[complete.cases(data),]
 
-
-## 4.
-all_names <- c("fyear", "misstate", "act", "ap", "at", "ceq", "che", "cogs", "csho", "dlc", "dltis", "dltt", "dp", "ib", "invt", "ivao", "ivst", "lct", "lt", "ni", "ppegt", "pstk", "re", "rect", "sale", "sstk", "txp", "txt", "xint", "prcc_f", "dch_wc", "ch_rsst", "dch_rec", "dch_inv", "soft_assets", "dpi", "ch_cs", "ch_cm", "ch_roa", "ch_fcf", "reoa", "EBIT", "issue", "bm")
+## 4. all_data bilden: Besteht nur aus 14 + 28 + 2 Vars
+all_names <- c("fyear", "misstate", "act", "ap", "at", "ceq", "che", 
+               "cogs", "csho", "dlc", "dltis", "dltt", "dp", "ib", 
+               "invt", "ivao", "ivst", "lct", "lt", "ni", "ppegt", 
+               "pstk", "re", "rect", "sale", "sstk", "txp", "txt", 
+               "xint", "prcc_f", "dch_wc", "ch_rsst", "dch_rec", 
+               "dch_inv", "soft_assets", "dpi", "ch_cs", "ch_cm", 
+               "ch_roa", "ch_fcf", "reoa", "EBIT", "issue", "bm")
 all_data <- data[, match(all_names, names(data))]
 
-
-## 5. 
-
-
+## 5. all_data via Jahreszahl normalisieren. fyear danach droppen
+# Funktion schreiben
 normalize <- function(x){
   return((x - min(x)) / (max(x) - min(x)))
 }
-
-
+# Funktion anwenden
 for (year in unique(all_data$fyear)){
   for (col in names(all_data)){
-    all_data[data$fyear == year, col] <- normalize(all_data[data$fyear == year, col]) 
+    all_data[data$fyear == year, col] <- normalize(
+      all_data[data$fyear == year, col]
+      ) 
   }
 }
+all_data <- all_data[, -1] 
 
-all_data <- all_data[, -1] # drop fyear
+## 6. raw_data (28 + 1 Vars) und  ratio_data (14 + 1 Vars) aus all_data bilden
+raw_names <- c("misstate", "act", "ap", "at", "ceq", "che", "cogs", 
+               "csho", "dlc", "dltis", "dltt", "dp", "ib", "invt", 
+               "ivao", "ivst", "lct", "lt", "ni", "ppegt", "pstk", 
+               "re", "rect", "sale", "sstk", "txp", "txt", "xint", 
+               "prcc_f")
 
-## 6. 
-
-raw_names <- c("misstate", "act", "ap", "at", "ceq", "che", "cogs", "csho", "dlc", "dltis", "dltt", "dp", "ib", "invt", "ivao", "ivst", "lct", "lt", "ni", "ppegt", "pstk", "re", "rect", "sale", "sstk", "txp", "txt", "xint", "prcc_f")
-
-ratio_names <- c("misstate", "dch_wc", "ch_rsst", "dch_rec", "dch_inv", "soft_assets", "dpi", "ch_cs", "ch_cm", "ch_roa", "ch_fcf", "reoa", "EBIT", "issue", "bm")
+ratio_names <- c("misstate", "dch_wc", "ch_rsst", "dch_rec", 
+                 "dch_inv", "soft_assets", "dpi", "ch_cs", "ch_cm", 
+                 "ch_roa", "ch_fcf", "reoa", "EBIT", "issue", "bm")
 
 raw_data <- all_data[, match(raw_names, names(all_data))]
 ratio_data <- all_data[, match(ratio_names, names(all_data))]
 
-## 7. Statistiken erstellen. SKIP. 
+# ==================================================================| Maximale Breite bis zum Strich
+
+## 7. Statistiken erstellen: min, Max, Mean, Median 0.25- und 0.75- 
+## Quantile, normalisierte Boxplots und Histogramme mir KDE. 
+
+# Ggf noch Ausreißer raus.
+# SKIP. 
+
 
 ```
+
+
+```{r}
+# Pie chart missstate 
+
+labels <- c("fraud", "no fraud")
+fraud <- sum(all_data$misstate)
+no_fraud <- nrow(all_data) - sum(all_data$misstate)
+fraud_smote <- no_fraud
+pie(c(fraud, no_fraud), labels = labels, main="Anteil Betrugsfälle vor SMOTE", init.angle = 90, clockwise = T)
+
+```
+```{r}
+pie(c(fraud_smote, no_fraud), labels = labels, main="Anteil Betrugsfälle nach SMOTE", init.angle = 90, clockwise = T)
+```
+Wir schauen uns Berichte pro Jahr an, um ein Gefühl dafür zu bekommen, ob ein Jahr über- oder unterrepräsentiert wird. 
+Cunclusion: Ja, passt eigenlich.2012 gabs nur 3706 Berichte, die es in unseren Datensatz geschafft haben und aus 1997 halt 6110. Gründe könnten in der Art liegen, wie unsere Daten erhoben wurden. Alex, wenn dir da was kleveres einfällt: Hau raus. Muss aber nicht zwingend sein, weil kein Jahr massiv unter- oder überrepräsentiert wird. Interessanter wird der nächste Punkt...
+```{r}
+# Simple Bar Plot
+counts <- table(data$fyear)
+barplot(counts, main="Berichte pro Jahr",
+   xlab="")
+```
+Nachfolgenden sehen wir die erkannten Betrugsfälle für jedes Jahr. Das ist schon eine etwas andere Hausnummer. In der Grafik darunter wird das genauer analysiert. 
+
+```{r}
+counts_misstate <- table(data$misstate, data$fyear)
+barplot(counts_misstate[2,], main="Betrugsfälle pro Jahr",
+   xlab="")
+```
+Zwischen 99 und 2004 wurden beinahe 3x so viele Betrugsfälle identifiziert wie in den anderen Perioden. Man könnte vermuten, dass davor nicht anständig hingeschaut wurde und danach (z.B. wegen der dot-com-krise) Kontrollmaßnahmen verstärkt wurden. Ist aber reine Spekualtion und Alex oder MArc können da sicher mehr dazu sagen. 
+```{r}
+counts_misstate_rel <- counts_misstate[2,] / (counts_misstate[1,] +counts_misstate[2,])
+barplot(counts_misstate_rel, main="Anteil Betrugsfälle pro Jahr",
+   xlab="")
+```
+Nachfolgend noch ein graph, mit dem wir belegen, dass eine Normalisierung nach fyear nötig war. Durchschnitt von sale pro Jahr. 
+
+```{r}
+
+placeholder <- numeric(length(unique(data$fyear)))
+counter = 0
+for (i in unique(data$fyear)){
+  counter = counter + 1
+  placeholder[counter] <- mean(data[data$fyear == i,]$sale)
+}
+names(placeholder) <- unique(data$fyear)
+
+barplot(placeholder, main="Mean sale pro Jahr",
+   xlab="")
+```
+Der Graph zeigt, dass die durchschnittlichen Sales sich in den Jahren '99 bis 2012 vervierfacht haben. Der Unterschied ist waaaay too big, als dass ein ML-;Modell damit klarkommen würde. Dahe rdie 0-1-Normalization, da wir sonst anhand der Jahreszahlen unterschiedliche Ergebnisse bekommen würden 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
