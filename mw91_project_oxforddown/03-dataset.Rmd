@@ -32,7 +32,9 @@ Zudem sind nur Betrugsfälle bis zum Jahr 2008 in diesem Datensatz erhalten, da 
 # install.packages('rio', type='binary')
 # install.packages('bookdown', type='binary')
 # install.packages('kdensity')
+# install.packages('highcharter')
 
+library(highcharter)
 library(neuralnet)
 library(caret)
 library(dplyr)
@@ -42,12 +44,12 @@ library(readr)
 library(rio)
 library(kdensity)
 ```
-Cleaning-Prozess-Reichenfolge:
+Cleaning-Process-Reihenfolge:
 
   1. Daten als "data" Laden
   2. Spalten "p_aaer" und "new_p_aaer" löschen
   3. Alle Zeilen mit NaN-Werten löschen
-  4. all_data bilden: Besteht nur aus 14 + 28 + 2 Vars 
+  4. all_data bilden: Besteht nur aus 14 + 28 + 2 Vars (ratios, raw, misstate, fyear)
   5. all_data via Jahreszahl normalisieren. fyear droppen. 
   6. raw_data (28 + 1 Vars) und  ratio_data (14 + 1 Vars) aus all_data bilden
   7. deskriptive Statistiken können mit den Datensätzen: min, Max, Mean, Median 0.25 und 0.75 Quantile UND normalisierte Boxplots und Histogramme. Ggf noch Ausreißer raus.
@@ -115,8 +117,8 @@ ratio_data <- all_data[, match(ratio_names, names(all_data))]
 
 ```
 
-Zunächst schauen wir, wie viele Betrugsfälle wir anteilig haben. Das sind super wenige, was man in dem Pie Chart sieht.
-```{r}
+Zunächst schauen wir, wie viele Betrugsfälle wir anteilig haben. Das sind super wenige, was man in dem Pie Chart sieht. Es reicht allerdings vollkommen aus das zu sagen, statt einen Chart rein zu hauen, der kaum Infos enthält. Daher "include = False"
+```{r, include = False}
 # Pie chart missstate 
 
 labels <- c("fraud", "no fraud")
@@ -126,50 +128,86 @@ fraud_smote <- no_fraud
 pie(c(fraud, no_fraud), labels = labels, main="Anteil Betrugsfälle vor SMOTE", init.angle = 90, clockwise = T)
 
 ```
+ERSTE GRAFIK: 
 
-Wir schauen uns Berichte pro Jahr an, um ein Gefühl dafür zu bekommen, ob ein Jahr über- oder unterrepräsentiert wird. 
-Cunclusion: Ja, passt eigenlich.2012 gabs nur 3706 Berichte, die es in unseren Datensatz geschafft haben und aus 1997 halt 6110. Gründe könnten in der Art liegen, wie unsere Daten erhoben wurden. Alex, wenn dir da was kleveres einfällt: Hau raus. Muss aber nicht zwingend sein, weil kein Jahr massiv unter- oder überrepräsentiert wird. Interessanter wird der nächste Punkt...
+  Enthält 3 infos:
+    -> Anteil Betrugsfälle ist sehr gering. Wir brauchen daher SMOTE, was in Kap 4 erklärt wird.
+    -> Anzahl untersuchter Berichte schwankt nur schwach unter den Jahren
+    -> Anteil identifizierter Betrugsfälle schwankt stark unter den Jahren. Wir treffen allerdings die Annahme, dass Betrug inherent gleich aufgebaut ist und dass das daher vernachlässigbar ist. Was man hier sieht ist vielmehr ein Trend. Nimmt in den letzten Betrachtungsjahren massiv ab, was wahrscheinlich daher kommt, dass zum Zeitpunkt der Datenerhebung der Betrug innerhalb dieser Samples noch nicht vollständig aufgedeckt war. Soll heißen: Je älter ein Betrachtungszeitraum ist, desto wahrscheinlicher ist es wohl, dass der darin enthaltene Betrug aufgedeckt wurde. 
+
+Wir schauen uns Berichte pro Jahr an, um ein Gefühl dafür zu bekommen, ob einzele Jahre stark über- oder unterrepräsentiert sind. In der gleichen Grafik schauen wir nach, wie viele der Untersuchten Berichte sich als Fraud herausgestellt haben. Wir wollen wissen, ob wir einzelne Jahre grundlegend anders behandeln müssen. 
+
+Cunclusion: Ne, passt eigenlich. 2012 gabs nur 3706 Berichte, die es in unseren Datensatz geschafft haben und aus 1997 halt 6110. Gründe könnten in der Art liegen, wie unsere Daten erhoben wurden. Alex, wenn dir da was kleveres einfällt: Hau raus. Muss aber nicht zwingend sein, weil kein Jahr massiv unter- oder überrepräsentiert wird. Die Rate der Gefunden Berichte Vervierfacht sich zwischen 1995 und 2000. Warum, weiß ich nicht. 2009 ist dann nochmal ein kleiner Peak nach oben, wahrscheinlich, weil nach der Finanzkrise genauer hingeschaut wurde. 
+
 ```{r}
-# Simple Bar Plot
 counts <- table(data$fyear)
-barplot(counts, main="Berichte pro Jahr",
-   xlab="")
-```
-Nachfolgenden sehen wir die erkannten Betrugsfälle für jedes Jahr. Das ist schon eine etwas andere Hausnummer. In der Grafik darunter wird das genauer analysiert. 
-
-```{r}
 counts_misstate <- table(data$misstate, data$fyear)
-barplot(counts_misstate[2,], main="Betrugsfälle pro Jahr",
-   xlab="")
+counts_misstate_rel <- round(counts_misstate[2,] / (counts_misstate[1,] +counts_misstate[2,]), 4)
+
+highchart() %>% 
+  hc_yAxis_multiples(
+    list(lineWidth = 3, lineColor='grey', title=list(text="Anzahl Berichte")),
+    list(lineWidth = 3, lineColor="red", title=list(text="Anteil Betrugsfälle"))
+  ) %>% 
+  hc_add_series(data = counts, color='grey', type = "column") %>% 
+  hc_add_series(data = as.table(counts_misstate_rel), color='red', type = "column", yAxis = 1) %>%
+  hc_xAxis(categories = unique(data$fyear), title = list(text = "Jahre"))
 ```
-Zwischen 99 und 2004 wurden beinahe 3x so viele Betrugsfälle identifiziert wie in den anderen Perioden. Man könnte vermuten, dass davor nicht anständig hingeschaut wurde und danach (z.B. wegen der dot-com-krise) Kontrollmaßnahmen verstärkt wurden. Ist aber reine Spekualtion und Alex oder MArc können da sicher mehr dazu sagen. 
-```{r}
-counts_misstate_rel <- counts_misstate[2,] / (counts_misstate[1,] +counts_misstate[2,])
-barplot(counts_misstate_rel, main="Anteil Betrugsfälle pro Jahr",
-   xlab="")
-```
+
+ZWEITE GRAFIK:
+  -> Sagt aus, dass wir nach Jahr normalisieren müssen, weil Jahre sonst nicht vergliechbar. 
+
 Nachfolgend noch ein graph, mit dem wir belegen, dass eine Normalisierung nach fyear nötig war. Durchschnitt von sale pro Jahr. 
 
-```{r}
+Der Graph zeigt, dass die durchschnittlichen Sales, cogs und total assets sich in den Jahren '90 bis 2012 verfünffacht haben. Der Unterschied ist waaaay too big, als dass ein ML-Modell damit klarkommen würde. Generelles Marktwachstum und Inflation haben die Zahlen von jüngeren Jahren aufgebläht. Daher die 0-1-Normalization, um die unterschiedlichen Jahre vergleichbar zu machen. 
 
-placeholder <- numeric(length(unique(data$fyear)))
+
+```{r}
+#sales
+placeholder_mean_sales <- numeric(length(unique(data$fyear)))
 counter = 0
 for (i in unique(data$fyear)){
   counter = counter + 1
-  placeholder[counter] <- mean(data[data$fyear == i,]$sale)
+  placeholder_mean_sales[counter] <- mean(data[data$fyear == i,]$sale)
 }
-names(placeholder) <- unique(data$fyear)
+names(placeholder_mean_sales) <- unique(data$fyear)
 
-barplot(placeholder, main="Mean sale pro Jahr",
-   xlab="")
+# cogs
+placeholder_mean_cogs <- numeric(length(unique(data$fyear)))
+counter = 0
+for (i in unique(data$fyear)){
+  counter = counter + 1
+  placeholder_mean_cogs[counter] <- mean(data[data$fyear == i,]$cogs)
+}
+names(placeholder_mean_cogs) <- unique(data$fyear)
+
+# at (assets total)
+placeholder_mean_at <- numeric(length(unique(data$fyear)))
+counter = 0
+for (i in unique(data$fyear)){
+  counter = counter + 1
+  placeholder_mean_at[counter] <- mean(data[data$fyear == i,]$at)
+}
+names(placeholder_mean_at) <- unique(data$fyear)
+
+highchart() %>% 
+  hc_yAxis_multiples(
+    list(lineWidth = 3, lineColor='black', title=list(text="Durchschnitt sales")),
+    list(lineWidth = 3, lineColor="grey", title=list(text="Durchschnitt cogs")),
+    list(lineWidth = 3, lineColor="silver", title=list(text="Durchschnitt total Assets"))
+  ) %>% 
+  hc_add_series(data = as.table(placeholder_mean_sales), color='black', type = "column") %>% 
+  hc_add_series(data = as.table(placeholder_mean_cogs), color='grey', type = "column", yAxis = 1) %>%
+  hc_add_series(data = as.table(placeholder_mean_at), color='silver', type = "column", yAxis = 2) %>%
+  hc_xAxis(categories = unique(data$fyear), title = list(text = "Jahre"))
 ```
-Der Graph zeigt, dass die durchschnittlichen Sales sich in den Jahren '99 bis 2012 vervierfacht haben. Der Unterschied ist waaaay too big, als dass ein ML-;Modell damit klarkommen würde. Dahe rdie 0-1-Normalization, da wir sonst anhand der Jahreszahlen unterschiedliche Ergebnisse bekommen würden 
 
 
-
-
-
-
+Hier könnte man jetzt für jede Var einen Boxplot machen um ihre Verteilung zu zeigen. 
+Allerdings sieht man da nicht viel, weil die Quantile ja auch normalisiert sind. 
+Man kann nur eine Grobe Verteilungsform aus den Graphen ableiten. 
+Die Durchschnitte nach Jahr in der Grafik oben stehen exemplarisch für alle 28 Rohdaten.
+Die 14 ratios könnte man eventuell noch am ehsten in Boxplots darstellen. 
 
 
 
