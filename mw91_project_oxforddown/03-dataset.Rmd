@@ -210,7 +210,13 @@ Die Durchschnitte nach Jahr in der Grafik oben stehen exemplarisch für alle 28 
 Die 14 ratios könnte man eventuell noch am ehsten in Boxplots darstellen. 
 
 
+```{r}
+summary(data[, match(ratio_names, names(data))])
+```
 
+```{r}
+summary(ratio_data)
+```
 
 
 
