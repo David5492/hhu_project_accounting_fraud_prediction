@@ -115,7 +115,7 @@ ratio_data <- all_data[, match(ratio_names, names(all_data))]
 
 ```
 
-
+Zunächst schauen wir, wie viele Betrugsfälle wir anteilig haben. Das sind super wenige, was man in dem Pie Chart sieht.
 ```{r}
 # Pie chart missstate 
 
@@ -126,9 +126,7 @@ fraud_smote <- no_fraud
 pie(c(fraud, no_fraud), labels = labels, main="Anteil Betrugsfälle vor SMOTE", init.angle = 90, clockwise = T)
 
 ```
-```{r}
-pie(c(fraud_smote, no_fraud), labels = labels, main="Anteil Betrugsfälle nach SMOTE", init.angle = 90, clockwise = T)
-```
+
 Wir schauen uns Berichte pro Jahr an, um ein Gefühl dafür zu bekommen, ob ein Jahr über- oder unterrepräsentiert wird. 
 Cunclusion: Ja, passt eigenlich.2012 gabs nur 3706 Berichte, die es in unseren Datensatz geschafft haben und aus 1997 halt 6110. Gründe könnten in der Art liegen, wie unsere Daten erhoben wurden. Alex, wenn dir da was kleveres einfällt: Hau raus. Muss aber nicht zwingend sein, weil kein Jahr massiv unter- oder überrepräsentiert wird. Interessanter wird der nächste Punkt...
 ```{r}

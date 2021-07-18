@@ -11,9 +11,10 @@ bibliography: references.bib
 
 # Methoden {#methods} 
 
+
 Diese Arbeit vergleicht die Vorhersagequalität der in der Accounting Fraud Detection gängigen logistischen Regression nach Dechow et al. (vgl. Bao et al. 2020, S. 2) mit der von neuronalen Netzen.
 Die logistische Regression ist eng mit der linearen Regression verwandt und wird zur binären Schätzung einer Klassenzugehörigkeit verwandt (vgl. Géron 2019, S. 144). Dabei berechnet sie eine gewichtete Summe von Inputfaktoren und aggregiert sie zu einer Wahrscheinlichkeit zwischen 0 und 1. Liegt diese Wahrscheinlichkeit bei mindestens 0.5, so wird die Klasse „1“ vorhergesagt, welcher in dieser Arbeit der Klasse „fraud“ entspricht (vgl. Géron 2019, S. 144). Hierzu wird für jedes Attribut einer Beobachtung eine Sigmoid-Funktion verwendet, welche S-förmig vom Minimum bis zum Maximum des jeweiligen Attributs verläuft und die Verteilungen der Merkmalsausprägungen möglichst gut nach Klassenzugehörigkeit abgrenzt. Je weiter eine Merkmalsausprägung von dieser Grenze entfernt ist, desto näher ist der Funktionswert an der 1 oder der 0 (vgl. Géron 2019, S. 148).
-Neuronale Netze bestehen aus drei Sorten von Schichten: Input-Schichten, welche Daten einlesen, versteckte Schichten, welche die Daten verarbeiten und Output-Schichten, welche aus den verarbeiteten Daten eine Prognose ableiten (vgl. Géron 2019, S. 286). In dieser Arbeit besteht die Output-Schicht aus lediglich einem Knoten, welche die Klassen „fraud“ abbildet. Die Anzahl der Knoten der Input-Schicht entspricht der Anzahl der Variablen im Datensatz. Die Knoten einer Schicht sind jeweils mit jedem Knoten seiner nachfolgenden Schicht durch „Gewichte“ verbunden. Jeder einzelne Knoten aggregiert die Signale, die er empfängt über deren Gewichte zu einer Zahl und wendet eine Aktivierungsfunktion an (vgl. Géron 2019, S. 282). Übersteigt der Funktionswert einen gegeben Schwellenwert, so „feuert“ das Neuron, was bedeutet, dass es ein Signal größer 0 an die Neuronen der nächsten Schicht weitergibt (vgl. Géron 2019, S. 282-283). Die Gewichte und alle Schwellenwerte werden durch Backpropagation unter Zuhilfenahme des Gradient Descent Algorithmus verbessert (vgl. Géron 2019, S.119 und S, 286). Sind alle Trainingsdaten einmal zum Training herangezogen worden, bedeutet das, dass das Netz für „eine Epoche“ trainiert wurde (vgl. Géron 2019, S. 127). In dieser Arbeit wird ein Netz über 100 Epochen hinweg trainiert.
+Neuronale Netze bestehen aus drei Sorten von Schichten: Input-Schichten, welche Daten einlesen, versteckte Schichten, welche die Daten verarbeiten und Output-Schichten, welche aus den verarbeiteten Daten eine Prognose ableiten (vgl. Géron 2019, S. 286). In dieser Arbeit besteht die Output-Schicht aus lediglich einem Knoten, welche die Klassen „fraud“ abbildet. Die Anzahl der Knoten der Input-Schicht entspricht der Anzahl der Variablen im Datensatz. Die Knoten einer Schicht sind jeweils mit jedem Knoten seiner nachfolgenden Schicht durch „Gewichte“ verbunden. Jeder einzelne Knoten aggregiert die Signale, die er empfängt über deren Gewichte zu einer Zahl und wendet eine Aktivierungsfunktion an, welche hier der Sigmoid-Funktion entspricht (vgl. Géron 2019, S. 282). Übersteigt der Funktionswert einen gegeben Schwellenwert, so „feuert“ das Neuron, was bedeutet, dass es ein Signal größer 0 an die Neuronen der nächsten Schicht weitergibt (vgl. Géron 2019, S. 282-283). Die Gewichte und alle Schwellenwerte werden durch Backpropagation unter Zuhilfenahme des Gradient Descent Algorithmus verbessert (vgl. Géron 2019, S.119 und S, 286). Sind alle Trainingsdaten einmal zum Training herangezogen worden, bedeutet das, dass das Netz für „eine Epoche“ trainiert wurde (vgl. Géron 2019, S. 127). In dieser Arbeit wird ein Netz über 100 Epochen hinweg trainiert.
 
 
  AB HIER HANDELT SICH DER AUFSCHRIEB MEHR UM NOTIZEN ALS UM EINE ABGABEFÄHIGE VERSION.
@@ -42,25 +43,25 @@ library(ggplot2)
 ```
 TODO:
 
-  1. Evaluate-Funktion bilden
-  2. LogReg mit allen Daten. Ablauf: 
-      1. Train-test-Split (X_train, y_train, X_test, y_test)
-      2. SOMTE in X_train anwenden, seed = 42
-      3. Training
-      4. Prediction (in y_pred speichern)
-      5. Evaluate-Funktion anwenden
-  3. LogReg mit Rohdaten
+  1. evaluate-Funktion bilden. Metriken: Sensistivity, Precision, F1, F2, F.5, AUC. 
+  2. train_test_split_smote-Funktion bilden. Bildet Trainnigs- und Testdatensätze. Oversamplet Trainingsdaten vía SMOTE. 
+  3. LogReg mit allen Daten. Ablauf: 
+      1. train_test_split_smote anwenden
+      2. Training des Modells
+      3. Vorhersage der Testdaten (in y_pred speichern)
+      4. evaluate-Funktion anwenden
+  4. LogReg mit Rohdaten
       1. ...
-  4. LogReg mit Ratios
+  5. LogReg mit Ratios
       1. ...
-  5. Summary von allen 3 Modellen
+  6. Summaries von allen 3 Modellen für den Anhang. 
 
 ```{r}
 ## 1. EVALUATE BILDEN
 evaluate <- function(test, pred, border = 0.5){
   
-  pred <- ifelse(pred > border, 1, 0)
-  confusion <- table(test, pred)
+  pred_round <- ifelse(pred >= border, 1, 0)
+  confusion <- table(test, pred_round)
   TN <- confusion[1,1]
   TP <- confusion[2,2]
   FP <- confusion[1,2]
@@ -94,7 +95,13 @@ evaluate <- function(test, pred, border = 0.5){
   F.5[1] <- NaN
   F.5[2] <- F.score(0.5)
   
-  return(cbind(confusion, total_acc, prec, sens, F1, F2, F.5))
+  ROCit_obj <- rocit(score=pred,class=test)
+  AUC <- numeric(2)
+  AUC[1] <- NaN
+  AUC[2] <- round(ROCit_obj$AUC, 4)
+  plot(ROCit_obj)
+  
+  return(cbind(confusion, total_acc, prec, sens, F1, F2, F.5, AUC))
   
 }
 ```
@@ -102,7 +109,7 @@ evaluate <- function(test, pred, border = 0.5){
 
 
 ```{r}
-## 2. MODELL MIT ALLEN DATEN TRANIEREN
+## 2. TRAIN_TEST_SPLIT_SMOTE BILDEN
 train_test_split_smote<- function(data, y_col, frac = 0.7, seed = 42, 
                                   k = 5){
   set.seed(seed)
@@ -130,6 +137,8 @@ train_test_split_smote<- function(data, y_col, frac = 0.7, seed = 42,
               y_test = y_test))
 }
 
+## 3. MODELL MIT ALLEN DATEN TRANIEREN
+
 splitted_data <- train_test_split_smote(data = all_data, 
                                     y_col = 'misstate', frac = 0.7)
 
@@ -141,36 +150,31 @@ y_test <- splitted_data$y_test
 train <- X_train
 train$misstate <- y_train
 
+```
+
+Nachfolgender Chart zeigt, dass SMOTE getan hat, was es soll: Betrugsfälle-Ratio ist bei 1:1 im Trainingsdatensatz. 
+
+```{r}
+labels <- c("fraud", "no fraud")
+fraud_smote <- sum(y_train)
+no_fraud_smote <- length(y_train) - fraud_smote
+pie(c(fraud_smote, no_fraud_smote), labels = labels, main="Anteil Betrugsfälle nach SMOTE", init.angle = 90, clockwise = T)
+```
+
+
+```{r}
+
 logit_all_data <- glm(misstate ~., data = train, 
                       family = "binomial")
 y_pred_logit_all_data <- predict.glm(logit_all_data, 
                                      X_test, type = "response" )
 
 evaluate(y_test, y_pred_logit_all_data)
-
-```
-```{r}
-tpr <- c()
-pre <- c()
-for(i in seq(0.001, 0.999, 0.01)){
-  res <- evaluate(y_test, y_pred_logit_all_data, border = i)
-  pre <- c(pre, 1 - res[2, "prec"])
-  tpr <- c(tpr, res[2, "sens"])
-}
-
-TPR <- seq(0,1,0.1)
-PREC <- seq(0,1,0.1)
-
-plot(PREC, TPR, type="l", col="green")
-lines(pre, tpr, type = "s", col = "red")
-
 ```
 
 ```{r}
 summary(logit_all_data)
 ```
-
-
 
 ```{r}
 ## 2. MODELL MIT ROH-DATEN TRANIEREN
@@ -191,6 +195,7 @@ y_pred_logit_raw_data <- predict.glm(logit_raw_data, X_test,
 
 evaluate(y_test, y_pred_logit_raw_data)
 ```
+
 ```{r}
 summary(logit_raw_data)
 ```
@@ -216,6 +221,7 @@ y_pred_logit_ratio_data <- predict.glm(logit_ratio_data, X_test,
 
 evaluate(y_test, y_pred_logit_ratio_data)
 ```
+
 ```{r}
 summary(logit_ratio_data)
 ```
