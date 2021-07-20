@@ -1,0 +1,368 @@
+# 1. Datensatz 
+
+```{r, include=FALSE}
+# install.packages("stringi", type="binary")
+# install.packages('caret')
+# install.packages('neuralnet')
+# install.packages('dplyr')
+# install.packages('Hmisc')
+# install.packages('smotefamily')
+# install.packages('readr')
+# install.packages('rio', type='binary')
+# install.packages('bookdown', type='binary')
+# install.packages('kdensity')
+# install.packages('highcharter')
+# install.packages('ROCit')
+# install.packages('ggplot2')
+
+library(highcharter)
+library(neuralnet)
+library(caret)
+library(dplyr)
+library(Hmisc)
+library(smotefamily)
+library(readr)
+library(rio)
+library(kdensity)
+library(ROCit)
+library(ggplot2)
+```
+### Cleaning-Process-Reihenfolge:
+
+  1. Daten als "data" Laden. > 146.000 Beobachtungen
+  2. Spalten "p_aaer" und "new_p_aaer" löschen, weil sie fast nur aus NaN bestehen. Restliche Var. haben max. ~10% NaN-Werte.
+  3. Alle Zeilen mit NaN-Werten löschen 116.478 Beobachtungen bleiben übrig. 
+  4. all_data bilden: Besteht nur aus 14 + 28 + 2 Vars (ratios, raw, misstate & fyear)
+  5. all_data via Jahreszahl normalisieren. fyear danach löschen 
+  6. raw_data (28 + 1 Vars) und  ratio_data (14 + 1 Vars) aus all_data bilden
+  7. Explorative Datenanalyse 
+
+
+#### 1.1 Daten als "data" Laden
+```{r}
+data <- import("data/uscecchini28.csv")
+```
+
+#### 1.2 Spalten "p_aaer" und "new_p_aaer" löschen
+```{r}
+data <- data[,-match(c("p_aaer", "new_p_aaer"), names(data))]
+```
+
+#### 1.3 Alle Zeilen mit NaN-Werten löschen
+```{r}
+data <- data[complete.cases(data),]
+```
+
+#### 1.4 all_data bilden: Besteht nur aus 14 + 28 + 2 Vars
+```{r}
+all_names <- c("fyear", "misstate", "act", "ap", "at", "ceq", "che", 
+               "cogs", "csho", "dlc", "dltis", "dltt", "dp", "ib", 
+               "invt", "ivao", "ivst", "lct", "lt", "ni", "ppegt", 
+               "pstk", "re", "rect", "sale", "sstk", "txp", "txt", 
+               "xint", "prcc_f", "dch_wc", "ch_rsst", "dch_rec", 
+               "dch_inv", "soft_assets", "dpi", "ch_cs", "ch_cm", 
+               "ch_roa", "ch_fcf", "reoa", "EBIT", "issue", "bm")
+all_data <- data[, match(all_names, names(data))]
+```
+
+#### 1.5 all_data via Jahreszahl normalisieren. fyear danach droppen
+```{r}
+# Funktion schreiben
+normalize <- function(x){
+  return((x - min(x)) / (max(x) - min(x)))
+}
+# Funktion anwenden
+for (year in unique(all_data$fyear)){
+  for (col in names(all_data)){
+    all_data[data$fyear == year, col] <- normalize(
+      all_data[data$fyear == year, col]
+      ) 
+  }
+}
+all_data <- all_data[, -1] 
+```
+
+#### 1.6 raw_data (28 + 1 Vars) und  ratio_data (14 + 1 Vars) aus all_data bilden
+```{r}
+raw_names <- c("misstate", "act", "ap", "at", "ceq", "che", "cogs", 
+               "csho", "dlc", "dltis", "dltt", "dp", "ib", "invt", 
+               "ivao", "ivst", "lct", "lt", "ni", "ppegt", "pstk", 
+               "re", "rect", "sale", "sstk", "txp", "txt", "xint", 
+               "prcc_f")
+
+ratio_names <- c("misstate", "dch_wc", "ch_rsst", "dch_rec", 
+                 "dch_inv", "soft_assets", "dpi", "ch_cs", "ch_cm", 
+                 "ch_roa", "ch_fcf", "reoa", "EBIT", "issue", "bm")
+
+raw_data <- all_data[, match(raw_names, names(all_data))]
+ratio_data <- all_data[, match(ratio_names, names(all_data))]
+
+```
+
+#### 1.7 Explorative Datenanlyse
+
+Zunächst wird ergründet, wie viele Betrugsfälle anteilig im Datensatz vorliegen. 
+```{r}
+# Pie chart missstate 
+
+labels <- c("fraud", "no fraud")
+fraud <- sum(all_data$misstate)
+no_fraud <- nrow(all_data) - sum(all_data$misstate)
+fraud_smote <- no_fraud
+pie(c(fraud, no_fraud), labels = labels, main="Anteil Betrugsfälle vor SMOTE", init.angle = 90, clockwise = T)
+
+```
+
+Anschließend ist von Interesse, ob jährlich etwa gleich viele Jahresabschlüsse untersucht wurden und ob etwa gleich viele Betrugsfälle in jedem Jahr gefunden wurden. 
+
+```{r}
+counts <- table(data$fyear)
+counts_misstate <- table(data$misstate, data$fyear)
+counts_misstate_rel <- round(counts_misstate[2,] / (counts_misstate[1,] +counts_misstate[2,]), 4)
+
+highchart() %>% 
+  hc_yAxis_multiples(
+    list(lineWidth = 3, lineColor='grey', title=list(text="Anzahl Berichte")),
+    list(lineWidth = 3, lineColor="black", title=list(text="Anteil Betrugsfälle"))
+  ) %>% 
+  hc_add_series(data = counts, color='grey', type = "column") %>% 
+  hc_add_series(data = as.table(counts_misstate_rel), color='black', type = "column", yAxis = 1) %>%
+  hc_xAxis(categories = unique(data$fyear), title = list(text = "Jahre"))
+```
+
+Weiterhin ist die Relevanz der Normalisierung für jedes einzelne Jahr im Cleaning-Prozess zu belegen. Dafür werden hier exemplarische monetäre Variablen aufgeführt. 
+
+```{r}
+#sales
+placeholder_mean_sales <- numeric(length(unique(data$fyear)))
+counter = 0
+for (i in unique(data$fyear)){
+  counter = counter + 1
+  placeholder_mean_sales[counter] <- mean(data[data$fyear == i,]$sale)
+}
+names(placeholder_mean_sales) <- unique(data$fyear)
+
+# cogs
+placeholder_mean_cogs <- numeric(length(unique(data$fyear)))
+counter = 0
+for (i in unique(data$fyear)){
+  counter = counter + 1
+  placeholder_mean_cogs[counter] <- mean(data[data$fyear == i,]$cogs)
+}
+names(placeholder_mean_cogs) <- unique(data$fyear)
+
+# at (assets total)
+placeholder_mean_at <- numeric(length(unique(data$fyear)))
+counter = 0
+for (i in unique(data$fyear)){
+  counter = counter + 1
+  placeholder_mean_at[counter] <- mean(data[data$fyear == i,]$at)
+}
+names(placeholder_mean_at) <- unique(data$fyear)
+
+highchart() %>% 
+  hc_yAxis_multiples(
+    list(lineWidth = 3, lineColor='black', title=list(text="Durchschnitt sales")),
+    list(lineWidth = 3, lineColor="grey", title=list(text="Durchschnitt cogs")),
+    list(lineWidth = 3, lineColor="silver", title=list(text="Durchschnitt total Assets"))
+  ) %>% 
+  hc_add_series(data = as.table(placeholder_mean_sales), color='black', type = "column") %>% 
+  hc_add_series(data = as.table(placeholder_mean_cogs), color='grey', type = "column", yAxis = 1) %>%
+  hc_add_series(data = as.table(placeholder_mean_at), color='silver', type = "column", yAxis = 2) %>%
+  hc_xAxis(categories = unique(data$fyear), title = list(text = "Jahre"))
+```
+
+
+
+
+
+# 2. Modelle und Ergebnisse 
+
+
+#### Aufbau:
+
+  1. evaluate-Funktion bilden. Metriken: Sensistivity, Precision, F1, F2, F.5, AUC. 
+  2. train_test_split_smote-Funktion bilden. Bildet Trainnigs- und Testdatensätze. Oversamplet Trainingsdaten vía SMOTE. 
+  3. Logit mit allen Daten. Ablauf: 
+      1. train_test_split_smote anwenden
+      2. Training des Modells
+      3. Vorhersage der Testdaten (in y_pred speichern)
+      4. evaluate-Funktion anwenden
+  4. Logit mit Rohdaten
+      1. wie 3. 
+  5. Logit mit Ratios
+      1. wie 3.
+  6. summary() für logit_all_data -> Parameter-Signifikanz
+  7. Neuronales Netz mit allen Daten
+  8. Neuronales Netz mit Rohdaten
+  9. Neuronales Netz mit Ratios
+
+
+#### 2.1 evaluate-Funktion bilden
+```{r}
+evaluate <- function(test, pred, border = 0.5){
+  
+  pred_round <- ifelse(pred >= border, 1, 0)
+  confusion <- table(test, pred_round)
+  TN <- confusion[1,1]
+  TP <- confusion[2,2]
+  FP <- confusion[1,2]
+  FN <- confusion[2,1]
+
+  total_acc <- numeric(2)
+  total_acc[1] <- NaN
+  total_acc[2] <- round((TN + TP) / sum(confusion),4)
+
+  prec <- numeric(2)
+  prec[1] <- NaN
+  prec[2] <- round(TP / (TP + FP),4)
+  
+  sens <- numeric(2)
+  sens[1] <- NaN
+  sens[2] <- round(TP / (TP + FN),4)
+  
+  F1 <- numeric(2)
+  F1[1] <- NaN
+  F1[2] <- round(2*(prec[2]*sens[2])/(prec[2] + sens[2]), 4)
+
+  F.score <- function(beta, p = prec[2], s = sens[2]){
+    round((1 + beta^2)*(p*s)/(beta^2*p + s),4)
+  }
+  
+  F2 <- numeric(2)
+  F2[1] <- NaN
+  F2[2] <- F.score(2)
+  
+  F.5 <- numeric(2)
+  F.5[1] <- NaN
+  F.5[2] <- F.score(0.5)
+  
+  ROCit_obj <- rocit(score=pred,class=test)
+  AUC <- numeric(2)
+  AUC[1] <- NaN
+  AUC[2] <- round(ROCit_obj$AUC, 4)
+  plot(ROCit_obj)
+  
+  return(cbind(confusion, total_acc, prec, sens, F1, F2, F.5, AUC))
+}
+```
+
+#### 2.2 train_test_split_smote bilden
+```{r}
+train_test_split_smote<- function(data, y_col, frac = 0.7, seed = 42, 
+                                  k = 5){
+  set.seed(seed)
+  
+  smp_size <- floor(frac * nrow(data))
+  train_ind <- sample(seq_len(nrow(data)), size = smp_size)
+  
+  X_smote <- data[train_ind, -match(y_col, names(data))]
+  y_smote <- data[train_ind, match(y_col, names(data))]
+  
+  true_frac <- sum(y_smote) / length(y_smote)
+  
+  train_smote_object <- SMOTE(X_smote, y_smote, K = 5, 
+                              dup_size = 1 / true_frac)$data
+  
+  X_train <- train_smote_object[,-match('class', 
+                                        names(train_smote_object))]
+  y_train <- as.numeric(train_smote_object[,
+                        match('class', names(train_smote_object))])
+  
+  X_test <- data[-train_ind, -match(y_col, names(data))]
+  y_test <- data[-train_ind, match(y_col, names(data))]
+
+  return(list(X_train = X_train, X_test = X_test, y_train = y_train, 
+              y_test = y_test))
+}
+```
+
+#### 2.3 Logit mit allen Daten bilden und evaluieren
+```{r}
+splitted_data <- train_test_split_smote(data = all_data, 
+                                    y_col = 'misstate', frac = 0.7)
+
+X_train <- splitted_data$X_train
+X_test <- splitted_data$X_test
+y_train <- splitted_data$y_train
+y_test <- splitted_data$y_test
+
+train <- X_train
+train$misstate <- y_train
+
+logit_all_data <- glm(misstate ~., data = train, 
+                      family = "binomial")
+y_pred_logit_all_data <- predict.glm(logit_all_data, 
+                                     X_test, type = "response" )
+
+evaluate(y_test, y_pred_logit_all_data)
+```
+
+#### 2.4 Logit mit Rohdaten bilden und evaluieren
+```{r}
+splitted_data <- train_test_split_smote(data = raw_data, 
+                                    y_col = 'misstate', frac = 0.7)
+X_train <- splitted_data$X_train
+X_test <- splitted_data$X_test
+y_train <- splitted_data$y_train
+y_test <- splitted_data$y_test
+
+train <- X_train
+train$misstate <- y_train
+
+logit_raw_data <- glm(misstate ~., data = train, 
+                      family = "binomial")
+y_pred_logit_raw_data <- predict.glm(logit_raw_data, X_test, 
+                                     type = "response" )
+
+evaluate(y_test, y_pred_logit_raw_data)
+```
+
+#### 2.5 Logit mit Ratio-Daten bilden und evaluieren
+```{r}
+splitted_data <- train_test_split_smote(data = ratio_data, 
+                                    y_col = 'misstate', frac = 0.7)
+
+X_train <- splitted_data$X_train
+X_test <- splitted_data$X_test
+y_train <- splitted_data$y_train
+y_test <- splitted_data$y_test
+
+train <- X_train
+train$misstate <- y_train
+
+logit_ratio_data <- glm(misstate ~., data = train,
+                        family = "binomial")
+y_pred_logit_ratio_data <- predict.glm(logit_ratio_data, X_test,
+                                       type = "response" )
+
+evaluate(y_test, y_pred_logit_ratio_data)
+```
+
+#### 2.6 summary() für logit_all_data
+```{r}
+summary(logit_all_data)
+```
+
+#### 2.7 Neuronales Netz mit allen Daten
+```{r}
+
+```
+
+#### 2.8 Neuronales Netz mit Roh-Daten
+```{r}
+
+```
+
+#### 2.9 Neuronales Netz mit Ratio-Daten
+```{r}
+
+```
+
+
+
+
+
+
+
+

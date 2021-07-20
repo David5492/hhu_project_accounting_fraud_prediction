@@ -11,10 +11,8 @@ bibliography: references.bib
 ---
 
 # Datensatz {#dataset} 
-Ein besonderer Fokus liegt aus diesem Grund auf der Minimierung des Typ II Fehlers respektive der Maximierung der Sensitivität des Modells. Eine höchstmögliche Genauigkeit ist gut, aufgrund der sehr geringen Anzahl an bilanziellen Verfehlungen verglichen zu der Stichprobengröße sollte hier allerdings kein Schwerpunkt liegen.
-Zum Training und Test des Machine Learning Modells, wird ein Datensatz aus der Veröffentlichung von Bao et al. (2020) verwendet. Die Autoren haben diesen im Internet auf der Seite „GitHub“ zur Verfügung gestellt (vgl. Bao et al. 2020, GitHub Repository). Dieser besteht aus allen öffentlich gelisteten US-amerikanischen Firmen im Zeitraum von 1991 bis 2008. Die Accounting-Betrugsfälle aus den „Accounting and Auditing Enforcement Releases“ (AAER), die von der United States Securities and Exchange Commission (SEC) im gleichen Zeitraum veröffentlicht worden sind (vgl. Bao et al. 2020, S. 207). Der Datensatz listet für jeden Eintrag 28 verschiedene finanzielle Items auf. Diese setzen sich aus den Veröffentlichungen von Cecchini et al. (2010) und Dechow et al. (2011) zusammen. Die finanziellen Items stammen aus vier verschiedenen Bereichen, der Bilanz (z.B. gesamte Forderungen), der Gewinn- und Verlustrechnung (z.B. Nettoumsatz), der Kapitalflussrechnung (z.B. Langzeitemission von Schuldtiteln) und dem Marktwert (z.B. Common Shares Outstanding).
-Da Accounting-Betrugsfälle eher seltener vorkommen (vgl. Dutta et al. 2011, S. 381), weist der Datensatz eine große Verteilungsungleichheit zwischen den Betrugs- und Nicht-betrugsfällen auf. Weniger als ein Prozent aller Einträge im Datensatz sind hierbei Betrugsfälle. Weitere Betrugsfälle könnten über andere Datenbanken gesucht werden, hierbei gibt es allerdings das Problem, dass die Betrugsfälle identifiziert und einzeln herausgesucht werden müssen. Daher besteht hier ein „class imbalance“ Problem, das mithilfe des Machine Learning Algorithmus gelöst werden muss.
-Zudem sind nur Betrugsfälle bis zum Jahr 2008 in diesem Datensatz erhalten, da die SEC nach der Finanzkrise ihre Prioritäten geändert hat (vgl. Bao et al. 2020, S. 208). Sollte sich die Art und Weise mit der Accounting-Betrug durchgeführt wird in den Jahren danach geändert haben, so können diese Fälle unter Umständen nicht vom Algorithmus erkannt werden.
+
+
 
 
  AB HIER HANDELT SICH DER AUFSCHRIEB MEHR UM NOTIZEN ALS UM EINE ABGABEFÄHIGE VERSION.
@@ -46,13 +44,13 @@ library(kdensity)
 ```
 Cleaning-Process-Reihenfolge:
 
-  1. Daten als "data" Laden
-  2. Spalten "p_aaer" und "new_p_aaer" löschen
-  3. Alle Zeilen mit NaN-Werten löschen
-  4. all_data bilden: Besteht nur aus 14 + 28 + 2 Vars (ratios, raw, misstate, fyear)
-  5. all_data via Jahreszahl normalisieren. fyear droppen. 
+  1. Daten als "data" Laden. 146.000 Beobachtungen
+  2. Spalten "p_aaer" und "new_p_aaer" löschen, weil sie fast nur aus NaN bestehen. Restliche Vars haben max. 10% NaN-Werte.
+  3. Alle Zeilen mit NaN-Werten löschen 116.478 Beobachtungen bleiben übrig. 
+  4. all_data bilden: Besteht nur aus 14 + 28 + 2 Vars (ratios, raw, misstate & fyear)
+  5. all_data via Jahreszahl normalisieren. fyear danach löschen 
   6. raw_data (28 + 1 Vars) und  ratio_data (14 + 1 Vars) aus all_data bilden
-  7. deskriptive Statistiken können mit den Datensätzen: min, Max, Mean, Median 0.25 und 0.75 Quantile UND normalisierte Boxplots und Histogramme. Ggf noch Ausreißer raus.
+  7. Explorative Datenanalyse 
 
   
 Dann ist die Datenvorbereitung fertig und man kann Modelle damit rechnen. Bis zu dem Punkt geht die nächste Zelle:
@@ -108,11 +106,7 @@ ratio_data <- all_data[, match(ratio_names, names(all_data))]
 
 # ==================================================================| Maximale Breite bis zum Strich
 
-## 7. Statistiken erstellen: min, Max, Mean, Median 0.25- und 0.75- 
-## Quantile, normalisierte Boxplots und Histogramme mir KDE. 
-
-# Ggf noch Ausreißer raus.
-# SKIP. 
+## 7. Statistiken erstellen
 
 
 ```
@@ -130,12 +124,12 @@ pie(c(fraud, no_fraud), labels = labels, main="Anteil Betrugsfälle vor SMOTE", 
 ```
 ERSTE GRAFIK: 
 
-  Enthält 3 infos:
-    -> Anteil Betrugsfälle ist sehr gering. Wir brauchen daher SMOTE, was in Kap 4 erklärt wird.
-    -> Anzahl untersuchter Berichte schwankt nur schwach unter den Jahren
-    -> Anteil identifizierter Betrugsfälle schwankt stark unter den Jahren. Wir treffen allerdings die Annahme, dass Betrug inherent gleich aufgebaut ist und dass das daher vernachlässigbar ist. Was man hier sieht ist vielmehr ein Trend. Nimmt in den letzten Betrachtungsjahren massiv ab, was wahrscheinlich daher kommt, dass zum Zeitpunkt der Datenerhebung der Betrug innerhalb dieser Samples noch nicht vollständig aufgedeckt war. Soll heißen: Je älter ein Betrachtungszeitraum ist, desto wahrscheinlicher ist es wohl, dass der darin enthaltene Betrug aufgedeckt wurde. 
 
 Wir schauen uns Berichte pro Jahr an, um ein Gefühl dafür zu bekommen, ob einzele Jahre stark über- oder unterrepräsentiert sind. In der gleichen Grafik schauen wir nach, wie viele der Untersuchten Berichte sich als Fraud herausgestellt haben. Wir wollen wissen, ob wir einzelne Jahre grundlegend anders behandeln müssen. 
+
+    -> Anteil Betrugsfälle ist sehr gering. Wir brauchen daher SMOTE, was in Kap 4 erklärt wird.
+    -> Anzahl untersuchter Berichte schwankt nur schwach unter den Jahren
+    -> Anteil identifizierter Betrugsfälle schwankt stark unter den Jahren. Wir treffen allerdings die Annahme, dass Betrug inherent gleich aufgebaut ist und dass das daher vernachlässigbar ist. Was man hier sieht ist vielmehr ein Trend. Nimmt in den letzten Betrachtungsjahren massiv ab, was wahrscheinlich daher kommt, dass zum Zeitpunkt der Datenerhebung der Betrug innerhalb dieser Samples noch nicht vollständig aufgedeckt war. Soll heißen: Je älter ein Betrachtungszeitraum ist, desto wahrscheinlicher ist es wohl, dass der darin enthaltene Betrug aufgedeckt wurde.
 
 Cunclusion: Ne, passt eigenlich. 2012 gabs nur 3706 Berichte, die es in unseren Datensatz geschafft haben und aus 1997 halt 6110. Gründe könnten in der Art liegen, wie unsere Daten erhoben wurden. Alex, wenn dir da was kleveres einfällt: Hau raus. Muss aber nicht zwingend sein, weil kein Jahr massiv unter- oder überrepräsentiert wird. Die Rate der Gefunden Berichte Vervierfacht sich zwischen 1995 und 2000. Warum, weiß ich nicht. 2009 ist dann nochmal ein kleiner Peak nach oben, wahrscheinlich, weil nach der Finanzkrise genauer hingeschaut wurde. 
 
@@ -147,10 +141,10 @@ counts_misstate_rel <- round(counts_misstate[2,] / (counts_misstate[1,] +counts_
 highchart() %>% 
   hc_yAxis_multiples(
     list(lineWidth = 3, lineColor='grey', title=list(text="Anzahl Berichte")),
-    list(lineWidth = 3, lineColor="red", title=list(text="Anteil Betrugsfälle"))
+    list(lineWidth = 3, lineColor="black", title=list(text="Anteil Betrugsfälle"))
   ) %>% 
   hc_add_series(data = counts, color='grey', type = "column") %>% 
-  hc_add_series(data = as.table(counts_misstate_rel), color='red', type = "column", yAxis = 1) %>%
+  hc_add_series(data = as.table(counts_misstate_rel), color='black', type = "column", yAxis = 1) %>%
   hc_xAxis(categories = unique(data$fyear), title = list(text = "Jahre"))
 ```
 
@@ -209,9 +203,12 @@ Man kann nur eine Grobe Verteilungsform aus den Graphen ableiten.
 Die Durchschnitte nach Jahr in der Grafik oben stehen exemplarisch für alle 28 Rohdaten.
 Die 14 ratios könnte man eventuell noch am ehsten in Boxplots darstellen. 
 
+```{r}
+summary(all_data)
+```
 
 ```{r}
-summary(data[, match(ratio_names, names(data))])
+summary(raw_data)
 ```
 
 ```{r}
