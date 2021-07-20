@@ -200,7 +200,7 @@ highchart() %>%
 
 #### 2.1 evaluate-Funktion bilden
 ```{r}
-evaluate <- function(test, pred, border = 0.5){
+evaluate <- function(test, pred, border = 0.5, k= 0.01){
   
   pred_round <- ifelse(pred >= border, 1, 0)
   confusion <- table(test, pred_round)
@@ -243,7 +243,19 @@ evaluate <- function(test, pred, border = 0.5){
   AUC[2] <- round(ROCit_obj$AUC, 4)
   plot(ROCit_obj)
   
-  return(cbind(confusion, total_acc, prec, sens, F1, F2, F.5, AUC))
+  NDCG_at_k <- numeric(2)
+  NDCG_at_k[1] <- NaN
+  
+  NDCG_df <- cbind(test, pred)
+  NDCG_df <- NDCG_df[order(-pred),]
+  k_frac <- round(length(test)*k)
+  
+  actual_tpr <- sum(NDCG_df[0:k_frac, 1]) / k_frac
+  best_tpr <- sum(sort(test, decreasing=T)) / k_frac
+  
+  NDCG_at_k[2] <- actual_tpr / best_tpr
+  
+  return(cbind(confusion, total_acc, prec, sens, F1, F2, F.5, AUC, NDCG_at_k))
 }
 ```
 
