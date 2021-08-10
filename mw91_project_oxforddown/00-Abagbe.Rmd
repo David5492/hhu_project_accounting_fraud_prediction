@@ -273,17 +273,17 @@ train_test_split_smote<- function(data, y_col, frac = 0.7, seed = 42,
   
   true_frac <- sum(y_smote) / length(y_smote)
   
-  train_smote_object <- SMOTE(X_smote, y_smote, K = 5, 
-                              dup_size = 1 / true_frac)$data
+  train_smote_object1 <- SMOTE(X_smote, y_smote, K = 5, 
+                               dup_size = 1 / true_frac)$data
   
-  X_train <- train_smote_object[,-match('class', 
-                                        names(train_smote_object))]
-  y_train <- as.numeric(train_smote_object[,
-                        match('class', names(train_smote_object))])
+  X_train <- train_smote_object1[,-match('class', 
+                                         names(train_smote_object1))]
+  y_train <- as.numeric(train_smote_object1[,
+                                            match('class', names(train_smote_object1))])
   
   X_test <- data[-train_ind, -match(y_col, names(data))]
   y_test <- data[-train_ind, match(y_col, names(data))]
-
+  
   return(list(X_train = X_train, X_test = X_test, y_train = y_train, 
               y_test = y_test))
 }
